@@ -1,0 +1,38 @@
+services:
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrate
+    env_file:
+      - .env
+    volumes:
+      - ./migrations:/app/migrations
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    container_name: campuscare-api
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - APP_PORT=8080
+    volumes:
+      - .:/app
+      - /app/tmp
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    depends_on:
+      migrate:
+        condition: service_completed_successfully

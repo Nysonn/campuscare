@@ -1,0 +1,988 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "CampusCare API",
+    "description": "Complete REST API collection for the CampusCare platform. Covers authentication, campaigns, contributions, bookings, and admin operations.\n\n**Base URL:** `{{base_url}}`\n\n**Auth:** Cookie-based sessions. Call `POST /login` first — the `session_id` cookie will be set automatically by Postman.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "campaign_id",
+      "value": "00000000-0000-0000-0000-000000000001",
+      "type": "string"
+    },
+    {
+      "key": "contribution_id",
+      "value": "00000000-0000-0000-0000-000000000002",
+      "type": "string"
+    },
+    {
+      "key": "booking_id",
+      "value": "00000000-0000-0000-0000-000000000003",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "00000000-0000-0000-0000-000000000004",
+      "type": "string"
+    },
+    {
+      "key": "counselor_id",
+      "value": "00000000-0000-0000-0000-000000000005",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "description": "User registration, login and logout. Sessions are managed via the `session_id` HTTP-only cookie.",
+      "item": [
+        {
+          "name": "Register (Student)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/register",
+              "host": ["{{base_url}}"],
+              "path": ["register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"alice@university.edu\",\n  \"password\": \"SecurePass123!\",\n  \"role\": \"student\",\n  \"full_name\": \"Alice Nakamura\",\n  \"consent\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Register a new user. `role` must be `student` or `counselor`. `consent` must be `true` to accept terms. Admin accounts are pre-seeded and cannot be self-registered."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"message\": \"Registered\",\n  \"user_id\": \"{{user_id}}\"\n}"
+            },
+            {
+              "name": "400 Email Already Exists",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"error\": \"Email already exists\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Register (Counselor)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/register",
+              "host": ["{{base_url}}"],
+              "path": ["register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"dr.smith@university.edu\",\n  \"password\": \"CounselorPass456!\",\n  \"role\": \"counselor\",\n  \"full_name\": \"Dr. Sarah Smith\",\n  \"consent\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Register a new counselor account."
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Postman automatically stores the session_id cookie.",
+                  "pm.test('Login successful', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": ["{{base_url}}"],
+              "path": ["login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"alice@university.edu\",\n  \"password\": \"SecurePass123!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Authenticates a user. On success, the server sets an HTTP-only `session_id` cookie valid for 24 hours. All protected endpoints read this cookie automatically."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"message\": \"Logged in\",\n  \"user_id\": \"{{user_id}}\"\n}"
+            },
+            {
+              "name": "401 Invalid Credentials",
+              "status": "Unauthorized",
+              "code": 401,
+              "body": "{\n  \"error\": \"Invalid credentials\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Login (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": ["{{base_url}}"],
+              "path": ["login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@university.edu\",\n  \"password\": \"AdminSecret789!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Login as admin to access admin-protected routes."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/logout",
+              "host": ["{{base_url}}"],
+              "path": ["logout"]
+            },
+            "description": "Invalidates the current session and clears the `session_id` cookie."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"message\": \"Logged out\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Campaigns",
+      "description": "Campaign lifecycle management. Public listing is unauthenticated. Create/Update/Delete require a `student` session. Approve requires an `admin` session.",
+      "item": [
+        {
+          "name": "List Approved Campaigns (Public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/campaigns",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns"]
+            },
+            "description": "Returns the 6 most recently approved campaigns. No authentication required."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "[\n  {\n    \"id\": \"3fa85f64-5717-4562-b3fc-2c963f66afa6\",\n    \"title\": \"Medical Aid for John\",\n    \"description\": \"John needs urgent surgery funding.\",\n    \"target_amount\": 5000000,\n    \"current_amount\": 1250000,\n    \"created_at\": \"2026-03-01T10:00:00Z\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Create Campaign",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/campaigns",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Medical Aid for John Doe\",\n  \"description\": \"John is a third-year engineering student who needs urgent surgery funding after a road accident. All donations will go directly to the hospital.\",\n  \"target_amount\": 5000000,\n  \"category\": \"medical\",\n  \"attachments\": [\n    \"https://res.cloudinary.com/df3lhzzy7/image/upload/v1/receipts/john_doc1.pdf\",\n    \"https://res.cloudinary.com/df3lhzzy7/image/upload/v1/receipts/john_doc2.jpg\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "**Requires:** `student` session cookie.\n\nSubmits a new campaign for admin approval. Campaign starts with `pending` status. `target_amount` is in the smallest currency unit (e.g. cents/kobo)."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"message\": \"Campaign submitted for approval\",\n  \"campaign_id\": \"{{campaign_id}}\"\n}"
+            },
+            {
+              "name": "401 Unauthorized",
+              "status": "Unauthorized",
+              "code": 401,
+              "body": "{\n  \"error\": \"Unauthorized\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Campaign",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/campaigns/{{campaign_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns", "{{campaign_id}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Medical Aid for John Doe (Updated)\",\n  \"description\": \"Updated details: John's surgery is scheduled for March 20th. Funds needed urgently.\",\n  \"target_amount\": 6000000,\n  \"category\": \"medical\",\n  \"attachments\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "**Requires:** `student` session cookie. The campaign must belong to the authenticated student.\n\nUpdates a campaign and resets its status to `pending` for re-approval."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"message\": \"Campaign updated and pending approval\"\n}"
+            },
+            {
+              "name": "400 Update Failed",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"error\": \"Update failed\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete Campaign",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/campaigns/{{campaign_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["campaigns", "{{campaign_id}}"]
+            },
+            "description": "**Requires:** `student` session cookie. The campaign must belong to the authenticated student.\n\nSoft-deletes the campaign by setting `deleted_at` timestamp."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"message\": \"Campaign deleted\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Unapproved Campaigns (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/campaigns",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "campaigns"]
+            },
+            "description": "**Requires:** `admin` session cookie.\n\nReturns all campaigns with `pending` status ordered by submission date (oldest first), so the admin can review and act on them."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "[\n  {\n    \"id\": \"{{campaign_id}}\",\n    \"student_id\": \"{{user_id}}\",\n    \"title\": \"Help fund my research\",\n    \"description\": \"...\",\n    \"target_amount\": 500000,\n    \"category\": \"education\",\n    \"created_at\": \"2026-03-04T10:00:00Z\"\n  }\n]"
+            },
+            {
+              "name": "401 Unauthorized",
+              "status": "Unauthorized",
+              "code": 401,
+              "body": "{\n  \"error\": \"Unauthorized\"\n}"
+            },
+            {
+              "name": "403 Forbidden",
+              "status": "Forbidden",
+              "code": 403,
+              "body": "{\n  \"error\": \"Forbidden\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Approve / Reject Campaign (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/campaigns/{{campaign_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "campaigns", "{{campaign_id}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"approved\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "**Requires:** `admin` session cookie.\n\n`status` must be `approved` or `rejected`. Approved campaigns appear in the public listing."
+          },
+          "response": [
+            {
+              "name": "200 Approved",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"message\": \"Campaign status updated\"\n}"
+            },
+            {
+              "name": "200 Rejected",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"message\": \"Campaign status updated\"\n}"
+            },
+            {
+              "name": "400 Invalid Status",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"error\": \"Invalid status\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Contributions",
+      "description": "Donation flow for campaigns. Anyone can contribute. Payment is simulated via a separate webhook-style endpoint.",
+      "item": [
+        {
+          "name": "Create Contribution",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  var body = pm.response.json();",
+                  "  pm.collectionVariables.set('contribution_id', body.contribution_id);",
+                  "  console.log('Saved contribution_id:', body.contribution_id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contributions",
+              "host": ["{{base_url}}"],
+              "path": ["contributions"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"campaign_id\": \"{{campaign_id}}\",\n  \"donor_name\": \"Jane Smith\",\n  \"donor_email\": \"jane.smith@gmail.com\",\n  \"donor_phone\": \"+256701234567\",\n  \"message\": \"Wishing you a speedy recovery, John!\",\n  \"is_anonymous\": false,\n  \"payment_method\": \"mtn_momo\",\n  \"amount\": 150000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "No authentication required. Creates a contribution in `pending` status.\n\nReturns the `contribution_id` which must be passed to the simulate endpoint. A test script auto-saves it as `{{contribution_id}}`.\n\n`payment_method` must be one of: `mtn_momo`, `airtel_money`, `visa`."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"contribution_id\": \"7c9e6679-7425-40de-944b-e07fc1f90ae7\",\n  \"message\": \"Pending payment simulation\"\n}"
+            },
+            {
+              "name": "400 Invalid Input",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"error\": \"Invalid input\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Simulate Payment (Success)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contributions/{{contribution_id}}/simulate",
+              "host": ["{{base_url}}"],
+              "path": ["contributions", "{{contribution_id}}", "simulate"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"success\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Simulates a payment gateway callback. When `success` is `true`:\n- Sets contribution status to `success`\n- Increments `current_amount` on the parent campaign\n- Sends a donation receipt email to the donor"
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"status\": \"success\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Simulate Payment (Failure)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/contributions/{{contribution_id}}/simulate",
+              "host": ["{{base_url}}"],
+              "path": ["contributions", "{{contribution_id}}", "simulate"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"success\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Simulates a failed payment. Sets contribution status to `failed`. Campaign amount is not changed."
+          },
+          "response": [
+            {
+              "name": "200 Failed",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"status\": \"failed\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Chatbot",
+      "description": "AI-powered mental health support chatbot. Requires a `student` session cookie. Automatically detects crisis language and returns a safe response with `crisis_flagged: true` when triggered. Conversation history is stored per user.",
+      "item": [
+        {
+          "name": "Ask Chatbot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/chatbot",
+              "host": ["{{base_url}}"],
+              "path": ["chatbot"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"I've been feeling really overwhelmed with exams and can't sleep.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "**Requires:** `student` session cookie.\n\nSends a message to the CampusCare AI support assistant. The assistant maintains conversation history across requests.\n\n- `reply` — the assistant's response\n- `crisis_flagged` — `true` if crisis language was detected (e.g. self-harm, suicide). The reply will be replaced with a safe crisis response and the user will be encouraged to contact a counselor."
+          },
+          "response": [
+            {
+              "name": "200 Normal Reply",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"reply\": \"It sounds like you're going through a really tough time. Exam stress is very real. Have you tried breaking your study sessions into smaller chunks and taking short breaks? Would you like help booking a session with a counselor?\",\n  \"crisis_flagged\": false\n}"
+            },
+            {
+              "name": "200 Crisis Detected",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"reply\": \"I'm really sorry you're feeling this way.\\nYou're not alone, and help is available.\\n\\nPlease consider contacting:\\n- Campus counselor immediately\\n- Local emergency services\\n- A trusted friend or family member\\n\\nIf you are in immediate danger, call emergency services right now.\\n\\nWould you like help booking a session with a counselor?\\n\",\n  \"crisis_flagged\": true\n}"
+            },
+            {
+              "name": "400 Invalid Input",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"error\": \"Invalid\"\n}"
+            },
+            {
+              "name": "401 Unauthorized",
+              "status": "Unauthorized",
+              "code": 401,
+              "body": "{\n  \"error\": \"Unauthorized\"\n}"
+            },
+            {
+              "name": "500 Chat Error",
+              "status": "Internal Server Error",
+              "code": 500,
+              "body": "{\n  \"error\": \"Chat error\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Bookings",
+      "description": "Counseling session booking. These endpoints are implemented in the codebase (BookingHandler) and are ready to be wired into the router.",
+      "item": [
+        {
+          "name": "Create Booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bookings",
+              "host": ["{{base_url}}"],
+              "path": ["bookings"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"counselor_id\": \"{{counselor_id}}\",\n  \"type\": \"online\",\n  \"start_time\": \"2026-03-10T09:00:00Z\",\n  \"end_time\": \"2026-03-10T10:00:00Z\",\n  \"location\": \"Zoom - link will be shared\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "**Requires:** `student` session cookie.\n\nBooks a 1-hour counseling slot. The server checks for overlapping bookings with `pending` or `approved` status. Times must be RFC3339 formatted."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"booking_id\": \"4d3e8a12-cb45-41f3-b19d-2c7a9f8e01bc\"\n}"
+            },
+            {
+              "name": "409 Slot Unavailable",
+              "status": "Conflict",
+              "code": 409,
+              "body": "{\n  \"error\": \"Time slot unavailable\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Approve Booking",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bookings/{{booking_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["bookings", "{{booking_id}}", "status"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"approved\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "**Requires:** `counselor` session cookie. The booking must belong to the authenticated counselor.\n\nApproving a booking automatically creates a Google Calendar event for the session."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"message\": \"Booking updated\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Reject Booking",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/bookings/{{booking_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["bookings", "{{booking_id}}", "status"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"declined\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "**Requires:** `counselor` session cookie.\n\n`status` must be `accepted` or `declined`."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"message\": \"Booking updated\"\n}"
+            },
+            {
+              "name": "400 Invalid Status",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"error\": \"status must be accepted or declined\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "description": "Administrative operations. All endpoints require an `admin` session cookie.",
+      "item": [
+        {
+          "name": "Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/dashboard",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "dashboard"]
+            },
+            "description": "**Requires:** `admin` session cookie.\n\nReturns aggregate platform stats: total users, campaigns, bookings, and total amount raised."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"users\": 42,\n  \"campaigns\": 15,\n  \"bookings\": 30,\n  \"total_raised\": 8500000\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/users?role=student&page=1",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users"],
+              "query": [
+                { "key": "role", "value": "student", "description": "Filter by role: student, counselor, admin" },
+                { "key": "status", "value": "", "description": "Filter by status: active, suspended", "disabled": true },
+                { "key": "page", "value": "1", "description": "Page number (20 per page)" }
+              ]
+            },
+            "description": "**Requires:** `admin` session cookie.\n\nReturns a paginated list of users. Filter by `role` or `status`. 20 results per page."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "[\n  {\n    \"id\": \"{{user_id}}\",\n    \"full_name\": \"Alice Nakamura\",\n    \"email\": \"alice@university.edu\",\n    \"role\": \"student\",\n    \"status\": \"active\",\n    \"created_at\": \"2026-03-04T10:00:00Z\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Update User Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{user_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users", "{{user_id}}", "status"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"suspended\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "**Requires:** `admin` session cookie.\n\n`status` must be `active` or `suspended`."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"message\": \"User updated\"\n}"
+            },
+            {
+              "name": "400 Invalid Status",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"error\": \"Invalid status\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Anonymize User (GDPR)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users", "{{user_id}}"]
+            },
+            "description": "**Requires:** `admin` session cookie.\n\nAnonymizes a user's PII. Sets `name` to `ANONYMIZED` and replaces `email` with `anon_{id}@deleted.local`. Irreversible."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"message\": \"User anonymized\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete Campaign (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/campaigns/{{campaign_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "campaigns", "{{campaign_id}}"]
+            },
+            "description": "**Requires:** `admin` session cookie.\n\nSoft-deletes any campaign regardless of owner."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"message\": \"Campaign removed\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List All Bookings (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/bookings",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "bookings"]
+            },
+            "description": "**Requires:** `admin` session cookie.\n\nReturns all bookings across the platform ordered by start time descending."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "[\n  {\n    \"id\": \"{{booking_id}}\",\n    \"student_id\": \"{{user_id}}\",\n    \"student_name\": \"Alice Nakamura\",\n    \"counselor_id\": \"{{counselor_id}}\",\n    \"counselor_name\": \"Dr. Sarah Smith\",\n    \"start_time\": \"2026-03-10T09:00:00Z\",\n    \"end_time\": \"2026-03-10T10:00:00Z\",\n    \"status\": \"pending\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "List All Contributions (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/contributions",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "contributions"]
+            },
+            "description": "**Requires:** `admin` session cookie.\n\nReturns all contributions across the platform ordered by creation date descending."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "[\n  {\n    \"id\": \"{{contribution_id}}\",\n    \"campaign_id\": \"{{campaign_id}}\",\n    \"donor_name\": \"Jane Smith\",\n    \"donor_email\": \"jane@gmail.com\",\n    \"amount\": 150000,\n    \"status\": \"success\",\n    \"created_at\": \"2026-03-04T12:00:00Z\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Export Contributions (CSV)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/contributions/export",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "contributions", "export"]
+            },
+            "description": "**Requires:** `admin` session cookie.\n\nStreams a CSV file of all contributions.\n- `Content-Type: text/csv`\n- `Content-Disposition: attachment; filename=contributions.csv`\n\nColumns: `Name, Email, Amount, Status`."
+          },
+          "response": [
+            {
+              "name": "200 CSV Download",
+              "status": "OK",
+              "code": 200,
+              "body": "Name,Email,Amount,Status\nJane Smith,jane.smith@gmail.com,150000,success"
+            }
+          ]
+        },
+        {
+          "name": "List Crisis Flags",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/crisis-flags",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "crisis-flags"]
+            },
+            "description": "**Requires:** `admin` session cookie.\n\nReturns all chatbot messages that triggered the crisis detector, ordered by most recent."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "[\n  {\n    \"user_id\": \"{{user_id}}\",\n    \"full_name\": \"Alice Nakamura\",\n    \"email\": \"alice@university.edu\",\n    \"message\": \"I've been thinking about ending it all\",\n    \"created_at\": \"2026-03-04T14:00:00Z\"\n  }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/admin/audit?page=1",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "audit"],
+              "query": [
+                { "key": "page", "value": "1", "description": "Page number (50 per page)" }
+              ]
+            },
+            "description": "**Requires:** `admin` session cookie.\n\nReturns paginated audit log entries. 50 per page."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "[\n  {\n    \"user_id\": \"{{user_id}}\",\n    \"action\": \"CREATE_CAMPAIGN\",\n    \"entity\": \"campaign\",\n    \"created_at\": \"2026-03-04T10:00:00Z\"\n  }\n]"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
