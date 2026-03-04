@@ -1,1 +1,49 @@
+# Environment variables - never commit secrets
 .env
+.env.*
+!.env.example
+
+# Go build output
+/tmp/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/bin/
+/dist/
+
+# Air hot reload
+tmp/
+
+# Go module cache
+vendor/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Docker volumes and overrides
+docker-compose.override.yml
+
+# SQLC generated files (regenerate with make sqlc)
+internal/db/generated/
+
+# Test coverage
+coverage.out
+coverage.html
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
