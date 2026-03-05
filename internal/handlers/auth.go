@@ -2,13 +2,23 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/Nysonn/campuscare/internal/services"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
+	}
+	return false
+}
 
 type AuthHandler struct {
 	DB             *pgxpool.Pool
@@ -47,11 +57,15 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	var userID uuid.UUID
 	err = tx.QueryRow(context.Background(),
 		`INSERT INTO users (full_name,email,password_hash,role,consent_given)
-		 VALUES ($1,$2,$3,$4) RETURNING id`,
-		req.Email, hash, req.Role, req.Consent,
+		 VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+		req.FullName, req.Email, hash, req.Role, req.Consent,
 	).Scan(&userID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Email already exists"})
+		if isUniqueViolation(err) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Email already exists"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		}
 		return
 	}
 
