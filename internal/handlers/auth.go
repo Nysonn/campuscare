@@ -56,9 +56,9 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	var userID uuid.UUID
 	err = tx.QueryRow(context.Background(),
-		`INSERT INTO users (full_name,email,password_hash,role,consent_given)
-		 VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-		req.FullName, req.Email, hash, req.Role, req.Consent,
+		`INSERT INTO users (email,password_hash,role,consent_given)
+		 VALUES ($1,$2,$3,$4) RETURNING id`,
+		req.Email, hash, req.Role, req.Consent,
 	).Scan(&userID)
 	if err != nil {
 		if isUniqueViolation(err) {
