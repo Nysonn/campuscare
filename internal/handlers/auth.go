@@ -46,7 +46,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	var userID uuid.UUID
 	err = tx.QueryRow(context.Background(),
-		`INSERT INTO users (email,password_hash,role,consent_given)
+		`INSERT INTO users (full_name,email,password_hash,role,consent_given)
 		 VALUES ($1,$2,$3,$4) RETURNING id`,
 		req.Email, hash, req.Role, req.Consent,
 	).Scan(&userID)
@@ -55,7 +55,8 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	if req.Role == "student" {
+	switch req.Role {
+	case "student":
 		parts := splitName(req.FullName)
 		_, err = tx.Exec(context.Background(),
 			`INSERT INTO student_profiles
@@ -63,13 +64,15 @@ func (h *AuthHandler) Register(c *gin.Context) {
 			 VALUES ($1,$2,$3,$4,'','','','','','')`,
 			userID, parts[0], parts[1], req.FullName,
 		)
-	} else if req.Role == "counselor" {
+	case "counselor":
 		_, err = tx.Exec(context.Background(),
 			`INSERT INTO counselor_profiles
 			 (user_id,full_name,specialization,bio,phone)
 			 VALUES ($1,$2,'','','')`,
 			userID, req.FullName,
 		)
+	default:
+		// No profile needed for other roles
 	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create profile"})
