@@ -52,6 +52,7 @@ func main() {
 	auth.POST("/campaigns", middleware.RequireRole(database, "student"), campaignHandler.Create)
 	auth.PUT("/campaigns/:id", middleware.RequireRole(database, "student"), campaignHandler.Update)
 	auth.DELETE("/campaigns/:id", middleware.RequireRole(database, "student"), campaignHandler.Delete)
+	auth.GET("/campaigns/mine", middleware.RequireRole(database, "student"), campaignHandler.MyCampaigns)
 
 	auth.PUT("/admin/campaigns/:id", middleware.RequireRole(database, "admin"), campaignHandler.Approve)
 	auth.GET("/admin/campaigns", middleware.RequireRole(database, "admin"), campaignHandler.ListPending)
@@ -80,6 +81,12 @@ func main() {
 
 	auth.POST("/bookings", middleware.RequireRole(database, "student"), bookingHandler.Create)
 	auth.PUT("/bookings/:id/status", middleware.RequireRole(database, "counselor"), bookingHandler.UpdateStatus)
+	auth.GET("/bookings/mine", middleware.RequireRole(database, "student"), bookingHandler.MyBookings)
+	auth.GET("/bookings/counselor", middleware.RequireRole(database, "counselor"), bookingHandler.CounselorBookings)
+	auth.GET("/counselors", middleware.RequireRole(database, "student"), bookingHandler.ListCounselors)
+
+	auth.GET("/profile", authHandler.Profile)
+	auth.PATCH("/profile", authHandler.UpdateProfile)
 
 	admin := r.Group("/admin")
 	admin.Use(middleware.AuthRequired(sessionService))

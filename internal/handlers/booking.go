@@ -142,3 +142,140 @@ func (h *BookingHandler) createCalendarEvent(bookingID uuid.UUID) {
 
 	calendarPkg.CreateEvent(srv, "Counseling Session: "+location, start.Format(time.RFC3339), end.Format(time.RFC3339))
 }
+
+func (h *BookingHandler) ListCounselors(c *gin.Context) {
+
+	rows, err := h.DB.Query(c,
+		`SELECT u.id, cp.full_name, cp.specialization, cp.bio
+		 FROM users u
+		 JOIN counselor_profiles cp ON cp.user_id = u.id
+		 WHERE u.role = 'counselor'
+		   AND u.deleted_at IS NULL
+		 ORDER BY cp.full_name ASC`,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch counselors"})
+		return
+	}
+	defer rows.Close()
+
+	var list []gin.H
+
+	for rows.Next() {
+		var id uuid.UUID
+		var fullName, specialization, bio string
+
+		rows.Scan(&id, &fullName, &specialization, &bio)
+
+		list = append(list, gin.H{
+			"id":             id,
+			"full_name":      fullName,
+			"specialization": specialization,
+			"bio":            bio,
+		})
+	}
+
+	if list == nil {
+		list = []gin.H{}
+	}
+
+	c.JSON(http.StatusOK, list)
+}
+
+func (h *BookingHandler) MyBookings(c *gin.Context) {
+
+	userID := c.MustGet("user_id").(uuid.UUID)
+
+	rows, err := h.DB.Query(c,
+		`SELECT b.id, b.counselor_id, cp.full_name AS counselor_name,
+		        b.type::text, b.start_time, b.end_time, b.location, b.status::text
+		 FROM bookings b
+		 JOIN counselor_profiles cp ON cp.user_id = b.counselor_id
+		 WHERE b.student_id = $1
+		   AND b.deleted_at IS NULL
+		 ORDER BY b.start_time DESC`,
+		userID,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Fetch failed"})
+		return
+	}
+	defer rows.Close()
+
+	var list []gin.H
+
+	for rows.Next() {
+		var id, counselorID uuid.UUID
+		var counselorName, sessionType, location, status string
+		var startTime, endTime time.Time
+
+		rows.Scan(&id, &counselorID, &counselorName, &sessionType, &startTime, &endTime, &location, &status)
+
+		list = append(list, gin.H{
+			"id":             id,
+			"counselor_id":   counselorID,
+			"counselor_name": counselorName,
+			"type":           sessionType,
+			"start_time":     startTime,
+			"end_time":       endTime,
+			"location":       location,
+			"status":         status,
+		})
+	}
+
+	if list == nil {
+		list = []gin.H{}
+	}
+
+	c.JSON(http.StatusOK, list)
+}
+
+func (h *BookingHandler) CounselorBookings(c *gin.Context) {
+
+	userID := c.MustGet("user_id").(uuid.UUID)
+	status := c.Query("status")
+
+	rows, err := h.DB.Query(c,
+		`SELECT b.id, b.student_id, sp.display_name AS student_name,
+		        b.type::text, b.start_time, b.end_time, b.location, b.status::text
+		 FROM bookings b
+		 JOIN student_profiles sp ON sp.user_id = b.student_id
+		 WHERE b.counselor_id = $1
+		   AND ($2 = '' OR b.status::text = $2)
+		   AND b.deleted_at IS NULL
+		 ORDER BY b.start_time ASC`,
+		userID, status,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Fetch failed"})
+		return
+	}
+	defer rows.Close()
+
+	var list []gin.H
+
+	for rows.Next() {
+		var id, studentID uuid.UUID
+		var studentName, sessionType, location, bookingStatus string
+		var startTime, endTime time.Time
+
+		rows.Scan(&id, &studentID, &studentName, &sessionType, &startTime, &endTime, &location, &bookingStatus)
+
+		list = append(list, gin.H{
+			"id":           id,
+			"student_id":   studentID,
+			"student_name": studentName,
+			"type":         sessionType,
+			"start_time":   startTime,
+			"end_time":     endTime,
+			"location":     location,
+			"status":       bookingStatus,
+		})
+	}
+
+	if list == nil {
+		list = []gin.H{}
+	}
+
+	c.JSON(http.StatusOK, list)
+}

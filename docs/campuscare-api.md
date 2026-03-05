@@ -12,17 +12,23 @@ All request and response bodies use `application/json` unless noted otherwise.
    - [Register](#register)
    - [Login](#login)
    - [Logout](#logout)
+   - [Get Current User Profile](#get-current-user-profile)
+   - [Update Profile](#update-profile)
 2. [Campaigns](#campaigns)
    - [Create Campaign](#create-campaign)
    - [List Approved Campaigns](#list-approved-campaigns)
+   - [My Campaigns](#my-campaigns)
    - [Update Campaign](#update-campaign)
    - [Delete Campaign](#delete-campaign)
 3. [Contributions](#contributions)
    - [Create Contribution](#create-contribution)
    - [Simulate Payment](#simulate-payment)
 4. [Bookings](#bookings)
+   - [List Counselors](#list-counselors)
    - [Create Booking](#create-booking)
    - [Update Booking Status](#update-booking-status)
+   - [My Bookings (Student)](#my-bookings-student)
+   - [My Appointments (Counselor)](#my-appointments-counselor)
 5. [Chatbot](#chatbot)
 6. [Admin](#admin)
    - [Dashboard](#dashboard)
@@ -34,6 +40,7 @@ All request and response bodies use `application/json` unless noted otherwise.
    - [List All Bookings](#list-all-bookings)
    - [List All Contributions](#list-all-contributions)
    - [Export Contributions](#export-contributions)
+7. [Health Check](#health-check)
 
 ---
 
@@ -143,7 +150,104 @@ No request body required.
 
 ---
 
-## Campaigns
+> ### 🍪 Session Management
+> The backend uses **HTTP-only cookies** for authentication. On login, the server sets a `session_id` cookie that the browser sends automatically on every subsequent request. There are no tokens to store in `localStorage`.
+>
+> On page refresh, call `GET /profile` to re-hydrate the user's session. If the cookie is expired or missing, the server returns `401 Unauthorized` and the frontend should redirect to login.
+
+---
+
+### Get Current User Profile
+
+Returns the full profile of the currently logged-in user. Use this on app load to restore session state after a page refresh.
+
+**`GET /profile`** — Requires authentication
+
+**Response `200 OK` — Student**
+
+```json
+{
+  "id": "b3750f8a-7511-49ac-94a6-b8a9c13eabd7",
+  "email": "leila.hassan@polytech.edu",
+  "role": "student",
+  "first_name": "Leila",
+  "last_name": "Hassan",
+  "display_name": "Leila Hassan",
+  "bio": "",
+  "university": "",
+  "course": "",
+  "year": "",
+  "location": "",
+  "avatar_url": "",
+  "is_anonymous": false
+}
+```
+
+**Response `200 OK` — Counselor**
+
+```json
+{
+  "id": "7076f52b-89db-4922-9d12-bf8350c27d83",
+  "email": "d.kapoor@wellness-center.org",
+  "role": "counselor",
+  "full_name": "Dr. Dev Kapoor",
+  "specialization": "",
+  "bio": "",
+  "phone": ""
+}
+```
+
+---
+
+### Update Profile
+
+Update the currently logged-in user's profile. All fields are **optional** — only the fields you send will be updated.
+
+**`PATCH /profile`** — Requires authentication
+
+**Request Body — Student**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `display_name` | string | ❌ | Public display name |
+| `bio` | string | ❌ | Short personal bio |
+| `university` | string | ❌ | University name |
+| `course` | string | ❌ | Course of study |
+| `year` | string | ❌ | Year of study e.g. `"Year 3"` |
+| `location` | string | ❌ | City or campus |
+| `avatar_url` | string | ❌ | URL to profile photo |
+| `is_anonymous` | boolean | ❌ | `true` hides name and photo on public campaign cards |
+
+**Example — Toggle anonymity only**
+
+```json
+{ "is_anonymous": true }
+```
+
+**Example — Update multiple fields**
+
+```json
+{
+  "bio": "Final year CS student at Makerere.",
+  "avatar_url": "https://res.cloudinary.com/campuscare/avatar.jpg",
+  "is_anonymous": false
+}
+```
+
+**Request Body — Counselor**
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `full_name` | string | ❌ | Display name |
+| `specialization` | string | ❌ | Area of expertise |
+| `bio` | string | ❌ | Professional bio |
+| `phone` | string | ❌ | Contact phone number |
+
+**Response `200 OK`**
+
+```json
+{ "message": "Profile updated" }
+```
 
 ### Create Campaign
 
@@ -160,6 +264,7 @@ Submit a new campaign for admin approval. Requires an authenticated student sess
 | `target_amount` | integer | ✅ | Fundraising goal in UGX |
 | `category` | string | ✅ | e.g. `"medical"`, `"education"` |
 | `attachments` | array of strings | ❌ | URLs to supporting documents or images |
+| `is_anonymous` | boolean | ❌ | `true` hides the student's name and photo on the public campaign card (default: `false`) |
 
 **Example**
 
@@ -169,6 +274,7 @@ Submit a new campaign for admin approval. Requires an authenticated student sess
   "description": "Sarah is a brilliant Computer Science senior facing deregistration due to an outstanding balance of 1.2M UGX. Let's help her clear her finals and graduate this semester.",
   "target_amount": 1200000,
   "category": "education",
+  "is_anonymous": false,
   "attachments": [
     "https://res.cloudinary.com/df3lhzzy7/image/upload/v1/campuscare/sarah_statement.pdf",
     "https://res.cloudinary.com/df3lhzzy7/image/upload/v1/campuscare/id_front.jpg"
@@ -205,7 +311,10 @@ Fetch all publicly visible, approved campaigns. No authentication required.
     "description": "Musa lost his part-time job last month and is facing eviction from his hostel in 3 days. We are raising funds to cover his rent for this semester so he can focus on his upcoming mid-semester exams.",
     "target_amount": 850000,
     "current_amount": 150000,
-    "created_at": "2026-03-04T16:34:04.406144Z"
+    "created_at": "2026-03-04T16:34:04.406144Z",
+    "is_anonymous": false,
+    "author": "Musa Okello",
+    "avatar_url": "https://res.cloudinary.com/campuscare/avatar.jpg"
   }
 ]
 ```
@@ -220,6 +329,11 @@ Fetch all publicly visible, approved campaigns. No authentication required.
 | `target_amount` | integer | Goal in UGX |
 | `current_amount` | integer | Amount raised so far in UGX |
 | `created_at` | string | ISO 8601 timestamp |
+| `is_anonymous` | boolean | Whether the student chose to be anonymous |
+| `author` | string | Student's display name — **empty string `""` when anonymous** |
+| `avatar_url` | string | Student's profile photo URL — **empty string `""` when anonymous** |
+
+> When `is_anonymous` is `true`, both `author` and `avatar_url` will be `""`. Show a placeholder avatar and "Anonymous" label in the UI.
 
 ---
 
@@ -238,6 +352,7 @@ Edit an existing campaign. The campaign will be re-submitted for admin approval 
 | `target_amount` | integer | ✅ | Updated target in UGX |
 | `category` | string | ✅ | Updated category |
 | `attachments` | array of strings | ❌ | Pass an empty array to clear attachments |
+| `is_anonymous` | boolean | ❌ | Update anonymity preference |
 
 **Example**
 
@@ -247,6 +362,7 @@ Edit an existing campaign. The campaign will be re-submitted for admin approval 
   "description": "Updated details: John's surgery is scheduled for March 20th. Funds needed urgently.",
   "target_amount": 6000000,
   "category": "medical",
+  "is_anonymous": true,
   "attachments": []
 }
 ```
@@ -360,6 +476,27 @@ Confirm or fail a pending payment for a contribution.
 
 ## Bookings
 
+### List Counselors
+
+Fetch all available counselors to display in the booking flow. Requires a student session.
+
+**`GET /counselors`** — Requires student session
+
+**Response `200 OK`**
+
+```json
+[
+  {
+    "id": "7076f52b-89db-4922-9d12-bf8350c27d83",
+    "full_name": "Dr. Dev Kapoor",
+    "specialization": "Anxiety & Depression",
+    "bio": "Experienced counselor with 10+ years supporting university students."
+  }
+]
+```
+
+---
+
 ### Create Booking
 
 Book a counseling session with a counselor. Requires an authenticated student session.
@@ -436,7 +573,65 @@ Accept or decline a booking request. This action is performed by the counselor.
 
 ---
 
-## Chatbot
+### My Bookings (Student)
+
+Returns all bookings made by the currently logged-in student.
+
+**`GET /bookings/mine`** — Requires student session
+
+**Response `200 OK`**
+
+```json
+[
+  {
+    "id": "e2f44163-4214-4fe1-a83b-14a83bd2c6e2",
+    "counselor_id": "7076f52b-89db-4922-9d12-bf8350c27d83",
+    "counselor_name": "Dr. Dev Kapoor",
+    "type": "online",
+    "start_time": "2026-03-10T09:00:00Z",
+    "end_time": "2026-03-10T10:00:00Z",
+    "location": "",
+    "status": "pending"
+  }
+]
+```
+
+---
+
+### My Appointments (Counselor)
+
+Returns all bookings assigned to the currently logged-in counselor. Supports optional status filtering.
+
+**`GET /bookings/counselor`** — Requires counselor session
+
+**Query Parameters**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `status` | string | ❌ | Filter by `"pending"`, `"accepted"`, or `"declined"`. Omit to return all. |
+
+**Example**
+
+```
+GET /bookings/counselor?status=pending
+```
+
+**Response `200 OK`**
+
+```json
+[
+  {
+    "id": "e2f44163-4214-4fe1-a83b-14a83bd2c6e2",
+    "student_id": "919ff2a2-6c7f-4117-9b36-40b44993f5af",
+    "student_name": "Leila Hassan",
+    "type": "online",
+    "start_time": "2026-03-10T09:00:00Z",
+    "end_time": "2026-03-10T10:00:00Z",
+    "location": "",
+    "status": "pending"
+  }
+]
+```
 
 Send a message to the mental health support chatbot. The bot detects crisis language and responds with appropriate resources.
 
@@ -719,3 +914,19 @@ Jane Smith, jane.smith@gmail.com, 150000, success
 ```
 
 > The frontend should trigger a file download when hitting this endpoint.
+
+---
+
+## Health Check
+
+A lightweight endpoint used to verify the server is running. No authentication required.
+
+**`GET /health`**
+
+**Response `200 OK`**
+
+```json
+{ "status": "ok" }
+```
+
+> This endpoint is pinged every 5 minutes by UptimeRobot to keep the Render free instance warm and prevent cold-start delays.

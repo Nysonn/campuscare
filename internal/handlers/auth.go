@@ -122,7 +122,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	sessionID, _ := h.SessionService.Create(id)
 
-	c.SetCookie("session_id", sessionID.String(), 3600*24, "/", "", false, true)
+	c.SetCookie("session_id", sessionID.String(), 3600*24, "/", "", true, true)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Logged in", "user_id": id})
 }
@@ -147,4 +147,155 @@ func splitName(full string) [2]string {
 		}
 	}
 	return [2]string{full, ""}
+}
+
+func (h *AuthHandler) Profile(c *gin.Context) {
+
+	userID := c.MustGet("user_id").(uuid.UUID)
+
+	var role, email string
+	err := h.DB.QueryRow(context.Background(),
+		`SELECT role::text, email FROM users WHERE id=$1`,
+		userID,
+	).Scan(&role, &email)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load profile"})
+		return
+	}
+
+	switch role {
+	case "student":
+		var firstName, lastName, displayName, bio, university, course, year, location, avatarURL string
+		var isAnonymous bool
+		h.DB.QueryRow(context.Background(),
+			`SELECT first_name, last_name, display_name, bio, university, course, year, location, avatar_url, is_anonymous
+			 FROM student_profiles WHERE user_id=$1`,
+			userID,
+		).Scan(&firstName, &lastName, &displayName, &bio, &university, &course, &year, &location, &avatarURL, &isAnonymous)
+
+		c.JSON(http.StatusOK, gin.H{
+			"id":           userID,
+			"email":        email,
+			"role":         role,
+			"first_name":   firstName,
+			"last_name":    lastName,
+			"display_name": displayName,
+			"bio":          bio,
+			"university":   university,
+			"course":       course,
+			"year":         year,
+			"location":     location,
+			"avatar_url":   avatarURL,
+			"is_anonymous": isAnonymous,
+		})
+
+	case "counselor":
+		var fullName, specialization, bio, phone string
+		h.DB.QueryRow(context.Background(),
+			`SELECT full_name, specialization, bio, phone FROM counselor_profiles WHERE user_id=$1`,
+			userID,
+		).Scan(&fullName, &specialization, &bio, &phone)
+
+		c.JSON(http.StatusOK, gin.H{
+			"id":             userID,
+			"email":          email,
+			"role":           role,
+			"full_name":      fullName,
+			"specialization": specialization,
+			"bio":            bio,
+			"phone":          phone,
+		})
+
+	default:
+		c.JSON(http.StatusOK, gin.H{
+			"id":    userID,
+			"email": email,
+			"role":  role,
+		})
+	}
+}
+
+func (h *AuthHandler) UpdateProfile(c *gin.Context) {
+
+	userID := c.MustGet("user_id").(uuid.UUID)
+
+	var role string
+	err := h.DB.QueryRow(context.Background(),
+		`SELECT role::text FROM users WHERE id=$1`, userID,
+	).Scan(&role)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load user"})
+		return
+	}
+
+	switch role {
+	case "student":
+		var body struct {
+			DisplayName *string `json:"display_name"`
+			Bio         *string `json:"bio"`
+			University  *string `json:"university"`
+			Course      *string `json:"course"`
+			Year        *string `json:"year"`
+			Location    *string `json:"location"`
+			AvatarURL   *string `json:"avatar_url"`
+			IsAnonymous *bool   `json:"is_anonymous"`
+		}
+		if err := c.BindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+			return
+		}
+
+		_, err = h.DB.Exec(context.Background(),
+			`UPDATE student_profiles
+			 SET display_name  = COALESCE($1, display_name),
+			     bio           = COALESCE($2, bio),
+			     university    = COALESCE($3, university),
+			     course        = COALESCE($4, course),
+			     year          = COALESCE($5, year),
+			     location      = COALESCE($6, location),
+			     avatar_url    = COALESCE($7, avatar_url),
+			     is_anonymous  = COALESCE($8, is_anonymous),
+			     updated_at    = now()
+			 WHERE user_id = $9`,
+			body.DisplayName, body.Bio, body.University, body.Course,
+			body.Year, body.Location, body.AvatarURL, body.IsAnonymous, userID,
+		)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Update failed"})
+			return
+		}
+
+	case "counselor":
+		var body struct {
+			FullName       *string `json:"full_name"`
+			Specialization *string `json:"specialization"`
+			Bio            *string `json:"bio"`
+			Phone          *string `json:"phone"`
+		}
+		if err := c.BindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+			return
+		}
+
+		_, err = h.DB.Exec(context.Background(),
+			`UPDATE counselor_profiles
+			 SET full_name       = COALESCE($1, full_name),
+			     specialization  = COALESCE($2, specialization),
+			     bio             = COALESCE($3, bio),
+			     phone           = COALESCE($4, phone),
+			     updated_at      = now()
+			 WHERE user_id = $5`,
+			body.FullName, body.Specialization, body.Bio, body.Phone, userID,
+		)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Update failed"})
+			return
+		}
+
+	default:
+		c.JSON(http.StatusForbidden, gin.H{"error": "Profile updates not supported for this role"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Profile updated"})
 }
