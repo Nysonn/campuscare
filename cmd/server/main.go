@@ -91,11 +91,5 @@ func main() {
 	admin.GET("/contributions", adminHandler.ListContributions)
 	admin.GET("/contributions/export", adminHandler.ExportContributions)
 
-	admin.DELETE("/users/:id", adminHandler.AnonymizeUser)
-
-	admin.GET("/crisis-flags", adminHandler.ListCrisisFlags)
-
-	admin.GET("/audit", adminHandler.AuditLogs)
-
 	r.Run(":" + cfg.AppPort)
 }

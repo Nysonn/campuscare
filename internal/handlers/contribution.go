@@ -155,24 +155,3 @@ func (h *AdminHandler) ExportContributions(c *gin.Context) {
 
 	writer.Flush()
 }
-
-func (h *AdminHandler) AnonymizeUser(c *gin.Context) {
-
-	idParam := c.Param("id")
-	userID, _ := uuid.Parse(idParam)
-
-	_, err := h.DB.Exec(context.Background(),
-		`UPDATE users
-		 SET name='ANONYMIZED',
-		     email=concat('anon_',id,'@deleted.local')
-		 WHERE id=$1`,
-		userID,
-	)
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "User anonymized"})
-}
