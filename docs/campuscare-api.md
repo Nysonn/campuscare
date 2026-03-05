@@ -30,6 +30,8 @@ All request and response bodies use `application/json` unless noted otherwise.
    - [My Bookings (Student)](#my-bookings-student)
    - [My Appointments (Counselor)](#my-appointments-counselor)
 5. [Chatbot](#chatbot)
+   - [Send Message](#send-message)
+   - [Get Chat History](#get-chat-history)
 6. [Admin](#admin)
    - [Dashboard](#dashboard)
    - [List Users](#list-users)
@@ -635,6 +637,12 @@ GET /bookings/counselor?status=pending
 
 Send a message to the mental health support chatbot. The bot detects crisis language and responds with appropriate resources.
 
+## Chatbot
+
+### Send Message
+
+Send a message to the mental health support chatbot. Requires a student session.
+
 **`POST /chatbot`**
 
 **Request Body**
@@ -668,6 +676,44 @@ Send a message to the mental health support chatbot. The bot detects crisis lang
 | `reply` | string | The chatbot's response message |
 
 > **Crisis Detection:** When `crisis_flagged` is `true`, the reply will contain emergency resources and prompt the user to book a counselor session or contact emergency services. The frontend should visually distinguish crisis responses.
+
+---
+
+### Get Chat History
+
+Returns all previous messages between the student and the chatbot, in chronological order (oldest first). Use this to restore the conversation on page load.
+
+**`GET /chatbot/history`** — Requires student session
+
+**Response `200 OK`**
+
+```json
+[
+  {
+    "id": "a1b2c3d4-...",
+    "role": "user",
+    "content": "I've been feeling really overwhelmed with exams and can't sleep.",
+    "created_at": "2026-03-05T10:22:00Z"
+  },
+  {
+    "id": "e5f6g7h8-...",
+    "role": "assistant",
+    "content": "I can sense how stressful this must be for you...",
+    "created_at": "2026-03-05T10:22:01Z"
+  }
+]
+```
+
+**Response Fields**
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | string | Unique message ID |
+| `role` | string | Either `"user"` or `"assistant"` |
+| `content` | string | The message text |
+| `created_at` | string | ISO 8601 timestamp |
+
+> Returns an empty array `[]` if the student has no prior conversation.
 
 ---
 

@@ -76,6 +76,10 @@ func main() {
 		middleware.RequireRole(database, "student"),
 		chatbotHandler.Ask,
 	)
+	auth.GET("/chatbot/history",
+		middleware.RequireRole(database, "student"),
+		chatbotHandler.History,
+	)
 
 	bookingHandler := &handlers.BookingHandler{DB: database}
 

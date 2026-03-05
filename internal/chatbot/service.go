@@ -1,6 +1,8 @@
 package chatbot
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -96,4 +98,45 @@ func (h *ChatbotHandler) Ask(c *gin.Context) {
 		"reply":          reply,
 		"crisis_flagged": crisis,
 	})
+}
+
+func (h *ChatbotHandler) History(c *gin.Context) {
+
+	userID := c.MustGet("user_id").(uuid.UUID)
+
+	rows, err := h.Service.DB.Query(c,
+		`SELECT id, role, content, created_at
+		 FROM chatbot_messages
+		 WHERE user_id = $1
+		 ORDER BY created_at ASC`,
+		userID,
+	)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "Failed to load history"})
+		return
+	}
+	defer rows.Close()
+
+	var messages []gin.H
+
+	for rows.Next() {
+		var id uuid.UUID
+		var role, content string
+		var createdAt time.Time
+
+		rows.Scan(&id, &role, &content, &createdAt)
+
+		messages = append(messages, gin.H{
+			"id":         id,
+			"role":       role,
+			"content":    content,
+			"created_at": createdAt,
+		})
+	}
+
+	if messages == nil {
+		messages = []gin.H{}
+	}
+
+	c.JSON(200, messages)
 }
