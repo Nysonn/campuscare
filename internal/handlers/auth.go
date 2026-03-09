@@ -122,6 +122,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	sessionID, _ := h.SessionService.Create(id)
 
+	c.SetSameSite(http.SameSiteNoneMode)
 	c.SetCookie("session_id", sessionID.String(), 3600*24, "/", "", true, true)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Logged in", "user_id": id})
@@ -133,7 +134,8 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 
 	h.SessionService.Delete(id)
 
-	c.SetCookie("session_id", "", -1, "/", "", false, true)
+	c.SetSameSite(http.SameSiteNoneMode)
+	c.SetCookie("session_id", "", -1, "/", "", true, true)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out"})
 }
