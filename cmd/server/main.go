@@ -66,7 +66,6 @@ func main() {
 	}
 
 	r.POST("/contributions", contributionHandler.Create)
-	r.POST("/contributions/:id/simulate", contributionHandler.Simulate)
 
 	chatbotHandler := &chatbot.ChatbotHandler{
 		Service: &chatbot.Service{DB: database},

@@ -49,8 +49,8 @@ func (h *ContributionHandler) Create(c *gin.Context) {
 	err := h.DB.QueryRow(context.Background(),
 		`INSERT INTO contributions
 		 (campaign_id, donor_name, donor_email, donor_phone,
-		  message, is_anonymous, payment_method, amount)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+		  message, is_anonymous, payment_method, amount, status)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'success')
 		 RETURNING id`,
 		campaignID,
 		req.DonorName,
@@ -67,71 +67,27 @@ func (h *ContributionHandler) Create(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"contribution_id": contributionID,
-		"message":         "Pending payment simulation",
-	})
-}
-
-func (h *ContributionHandler) Simulate(c *gin.Context) {
-
-	idParam := c.Param("id")
-	contributionID, _ := uuid.Parse(idParam)
-
-	var body struct {
-		Success bool `json:"success"`
-	}
-	c.BindJSON(&body)
-
-	status := "failed"
-	if body.Success {
-		status = "success"
-	}
-
-	_, err := h.DB.Exec(context.Background(),
-		`UPDATE contributions
-		 SET status=$1, updated_at=now()
+	// Increment campaign amount
+	h.DB.Exec(context.Background(),
+		`UPDATE campaigns
+		 SET current_amount = current_amount + $1
 		 WHERE id=$2`,
-		status, contributionID,
+		req.Amount, campaignID,
 	)
 
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Simulation failed"})
-		return
-	}
+	// Send receipt email
+	h.Mailer.Send(
+		req.DonorEmail,
+		"CampusCare Donation Receipt",
+		mail.DonationReceiptTemplate(req.DonorName, req.Amount),
+	)
 
-	if body.Success {
+	audit.Log(h.DB, uuid.Nil, "DONATION_SUCCESS", "contribution", contributionID, nil)
 
-		var amount int64
-		var campaignID uuid.UUID
-		var donorEmail string
-		var donorName string
-
-		h.DB.QueryRow(context.Background(),
-			`SELECT amount,campaign_id,donor_email,donor_name
-			 FROM contributions WHERE id=$1`,
-			contributionID,
-		).Scan(&amount, &campaignID, &donorEmail, &donorName)
-
-		// Increment campaign amount
-		h.DB.Exec(context.Background(),
-			`UPDATE campaigns
-			 SET current_amount = current_amount + $1
-			 WHERE id=$2`,
-			amount, campaignID,
-		)
-
-		// Send Emails
-		h.Mailer.Send(
-			donorEmail,
-			"CampusCare Donation Receipt",
-			mail.DonationReceiptTemplate(donorName, amount),
-		)
-
-		audit.Log(h.DB, uuid.Nil, "DONATION_SUCCESS", "contribution", contributionID, nil)
-	}
-
-	c.JSON(http.StatusOK, gin.H{"status": status})
+	c.JSON(http.StatusCreated, gin.H{
+		"contribution_id": contributionID,
+		"status":          "success",
+	})
 }
 
 func (h *AdminHandler) ExportContributions(c *gin.Context) {
