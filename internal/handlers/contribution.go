@@ -75,8 +75,8 @@ func (h *ContributionHandler) Create(c *gin.Context) {
 		req.Amount, campaignID,
 	)
 
-	// Send receipt email
-	h.Mailer.Send(
+	// Send receipt email in background to avoid blocking the response
+	go h.Mailer.Send(
 		req.DonorEmail,
 		"CampusCare Donation Receipt",
 		mail.DonationReceiptTemplate(req.DonorName, req.Amount),
