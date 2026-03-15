@@ -7,13 +7,15 @@ import (
 
 	"github.com/Nysonn/campuscare/internal/audit"
 	calendarPkg "github.com/Nysonn/campuscare/internal/calendar"
+	"github.com/Nysonn/campuscare/internal/mail"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type BookingHandler struct {
-	DB *pgxpool.Pool
+	DB     *pgxpool.Pool
+	Mailer *mail.Mailer
 }
 
 type CreateBookingRequest struct {
@@ -113,14 +115,51 @@ func (h *BookingHandler) UpdateStatus(c *gin.Context) {
 		return
 	}
 
-	// If accepted → create Google Calendar event
+	// If accepted → create Google Calendar event + notify student
 	if body.Status == "accepted" {
 		go h.createCalendarEvent(bookingID)
+		go h.notifyStudentBookingStatus(bookingID, "accepted")
+	}
+
+	if body.Status == "declined" {
+		go h.notifyStudentBookingStatus(bookingID, "declined")
 	}
 
 	audit.Log(h.DB, counselorID, "UPDATE_BOOKING", "booking", bookingID, body)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Booking updated"})
+}
+
+func (h *BookingHandler) notifyStudentBookingStatus(bookingID uuid.UUID, status string) {
+	var studentEmail, studentName, counselorName, sessionType string
+	var startTime, endTime time.Time
+
+	err := h.DB.QueryRow(context.Background(),
+		`SELECT u.email, sp.display_name, cp.full_name, b.type::text, b.start_time, b.end_time
+		 FROM bookings b
+		 JOIN users u ON u.id = b.student_id
+		 JOIN student_profiles sp ON sp.user_id = b.student_id
+		 JOIN counselor_profiles cp ON cp.user_id = b.counselor_id
+		 WHERE b.id = $1`,
+		bookingID,
+	).Scan(&studentEmail, &studentName, &counselorName, &sessionType, &startTime, &endTime)
+	if err != nil {
+		return
+	}
+
+	start := startTime.Format("02 Jan 2006 · 15:04")
+	end := endTime.Format("15:04")
+
+	var subject, body string
+	if status == "accepted" {
+		subject = "Your Counselling Session Has Been Confirmed"
+		body = mail.BookingAcceptedTemplate(studentName, counselorName, sessionType, start, end)
+	} else {
+		subject = "Your Counselling Session Request Was Declined"
+		body = mail.BookingDeclinedTemplate(studentName, counselorName, start)
+	}
+
+	h.Mailer.Send(studentEmail, subject, body)
 }
 
 func (h *BookingHandler) createCalendarEvent(bookingID uuid.UUID) {

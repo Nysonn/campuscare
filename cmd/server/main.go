@@ -80,7 +80,7 @@ func main() {
 		chatbotHandler.History,
 	)
 
-	bookingHandler := &handlers.BookingHandler{DB: database}
+	bookingHandler := &handlers.BookingHandler{DB: database, Mailer: mailer}
 
 	auth.POST("/bookings", middleware.RequireRole(database, "student"), bookingHandler.Create)
 	auth.PUT("/bookings/:id/status", middleware.RequireRole(database, "counselor"), bookingHandler.UpdateStatus)
