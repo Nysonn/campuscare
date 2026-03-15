@@ -284,10 +284,11 @@ func (h *BookingHandler) CounselorBookings(c *gin.Context) {
 	status := c.Query("status")
 
 	rows, err := h.DB.Query(c,
-		`SELECT b.id, b.student_id, sp.display_name AS student_name,
+		`SELECT b.id, b.student_id, sp.display_name AS student_name, u.email AS student_email,
 		        b.type::text, b.start_time, b.end_time, b.location, b.status::text
 		 FROM bookings b
 		 JOIN student_profiles sp ON sp.user_id = b.student_id
+		 JOIN users u ON u.id = b.student_id
 		 WHERE b.counselor_id = $1
 		   AND ($2 = '' OR b.status::text = $2)
 		   AND b.deleted_at IS NULL
@@ -304,20 +305,21 @@ func (h *BookingHandler) CounselorBookings(c *gin.Context) {
 
 	for rows.Next() {
 		var id, studentID uuid.UUID
-		var studentName, sessionType, location, bookingStatus string
+		var studentName, studentEmail, sessionType, location, bookingStatus string
 		var startTime, endTime time.Time
 
-		rows.Scan(&id, &studentID, &studentName, &sessionType, &startTime, &endTime, &location, &bookingStatus)
+		rows.Scan(&id, &studentID, &studentName, &studentEmail, &sessionType, &startTime, &endTime, &location, &bookingStatus)
 
 		list = append(list, gin.H{
-			"id":           id,
-			"student_id":   studentID,
-			"student_name": studentName,
-			"type":         sessionType,
-			"start_time":   startTime,
-			"end_time":     endTime,
-			"location":     location,
-			"status":       bookingStatus,
+			"id":            id,
+			"student_id":    studentID,
+			"student_name":  studentName,
+			"student_email": studentEmail,
+			"type":          sessionType,
+			"start_time":    startTime,
+			"end_time":      endTime,
+			"location":      location,
+			"status":        bookingStatus,
 		})
 	}
 
