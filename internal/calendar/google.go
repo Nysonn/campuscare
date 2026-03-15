@@ -16,18 +16,29 @@ func NewService() (*calendar.Service, error) {
 	)
 }
 
-func CreateEvent(srv *calendar.Service, summary string, start, end string) error {
+func CreateEvent(srv *calendar.Service, summary, start, end, studentEmail string, online bool) error {
 
 	event := &calendar.Event{
 		Summary: summary,
-		Start: &calendar.EventDateTime{
-			DateTime: start,
-		},
-		End: &calendar.EventDateTime{
-			DateTime: end,
+		Start:   &calendar.EventDateTime{DateTime: start},
+		End:     &calendar.EventDateTime{DateTime: end},
+		Attendees: []*calendar.EventAttendee{
+			{Email: studentEmail},
 		},
 	}
 
-	_, err := srv.Events.Insert("primary", event).Do()
+	call := srv.Events.Insert("primary", event).SendUpdates("all")
+
+	if online {
+		event.ConferenceData = &calendar.ConferenceData{
+			CreateRequest: &calendar.CreateConferenceRequest{
+				RequestId:             start + studentEmail,
+				ConferenceSolutionKey: &calendar.ConferenceSolutionKey{Type: "hangoutsMeet"},
+			},
+		}
+		call = call.ConferenceDataVersion(1)
+	}
+
+	_, err := call.Do()
 	return err
 }

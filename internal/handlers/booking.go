@@ -115,10 +115,9 @@ func (h *BookingHandler) UpdateStatus(c *gin.Context) {
 		return
 	}
 
-	// If accepted → create Google Calendar event + notify student
 	if body.Status == "accepted" {
+		// Calendar invite (with Google Meet for online) is sent to the student automatically
 		go h.createCalendarEvent(bookingID)
-		go h.notifyStudentBookingStatus(bookingID, "accepted")
 	}
 
 	if body.Status == "declined" {
@@ -164,12 +163,15 @@ func (h *BookingHandler) notifyStudentBookingStatus(bookingID uuid.UUID, status 
 
 func (h *BookingHandler) createCalendarEvent(bookingID uuid.UUID) {
 	var start, end time.Time
-	var location string
+	var location, sessionType, studentEmail string
 
 	err := h.DB.QueryRow(context.Background(),
-		`SELECT start_time, end_time, location FROM bookings WHERE id=$1`,
+		`SELECT b.start_time, b.end_time, b.location, b.type::text, u.email
+		 FROM bookings b
+		 JOIN users u ON u.id = b.student_id
+		 WHERE b.id = $1`,
 		bookingID,
-	).Scan(&start, &end, &location)
+	).Scan(&start, &end, &location, &sessionType, &studentEmail)
 	if err != nil {
 		return
 	}
@@ -179,7 +181,14 @@ func (h *BookingHandler) createCalendarEvent(bookingID uuid.UUID) {
 		return
 	}
 
-	calendarPkg.CreateEvent(srv, "Counseling Session: "+location, start.Format(time.RFC3339), end.Format(time.RFC3339))
+	calendarPkg.CreateEvent(
+		srv,
+		"Counseling Session",
+		start.Format(time.RFC3339),
+		end.Format(time.RFC3339),
+		studentEmail,
+		sessionType == "online",
+	)
 }
 
 func (h *BookingHandler) ListCounselors(c *gin.Context) {
