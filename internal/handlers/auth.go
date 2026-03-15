@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -136,8 +137,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	c.SetSameSite(http.SameSiteNoneMode)
-	c.SetCookie("session_id", sessionID.String(), h.SessionService.SessionTTL*3600, "/", "", true, true)
+	c.Header("Set-Cookie", fmt.Sprintf(
+		"session_id=%s; Max-Age=%d; Path=/; Secure; HttpOnly; SameSite=None; Partitioned",
+		sessionID.String(), h.SessionService.SessionTTL*3600,
+	))
 
 	c.JSON(http.StatusOK, gin.H{"message": "Logged in", "user_id": id})
 }
@@ -148,8 +151,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 
 	h.SessionService.Delete(id)
 
-	c.SetSameSite(http.SameSiteNoneMode)
-	c.SetCookie("session_id", "", -1, "/", "", true, true)
+	c.Header("Set-Cookie", "session_id=; Max-Age=0; Path=/; Secure; HttpOnly; SameSite=None; Partitioned")
 
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out"})
 }
