@@ -47,3 +47,36 @@ func DonationReceiptTemplate(name string, amount int64) string {
 		<p style="color:#2f855a;">With gratitude,<br/>CampusCare Team</p>
 	</div>`
 }
+
+func OnlineMeetingStudentTemplate(studentName, counselorName, startTime, endTime, meetLink string) string {
+	return `
+	<div style="font-family: Arial, sans-serif; background:#f0fff4; padding:20px;">
+		<h2 style="color:#2f855a;">CampusCare</h2>
+		<p>Dear ` + studentName + `,</p>
+		<p>Your online counselling request has been <strong>accepted</strong>.</p>
+		<table style="border-collapse:collapse; width:100%; margin:16px 0;">
+			<tr><td style="padding:8px; font-weight:bold;">Counselor</td><td style="padding:8px;">` + counselorName + `</td></tr>
+			<tr style="background:#e6ffed;"><td style="padding:8px; font-weight:bold;">Type</td><td style="padding:8px;">Online Session</td></tr>
+			<tr><td style="padding:8px; font-weight:bold;">Date &amp; Time</td><td style="padding:8px;">` + startTime + ` - ` + endTime + `</td></tr>
+		</table>
+		<p><strong>Google Meet Link:</strong><br/><a href="` + meetLink + `">` + meetLink + `</a></p>
+		<p>Please join a few minutes early.</p>
+		<p style="color:#2f855a;">Best regards,<br/>CampusCare Team</p>
+	</div>`
+}
+
+func OnlineMeetingCounselorTemplate(counselorName, studentName, startTime, endTime, meetLink string) string {
+	return `
+	<div style="font-family: Arial, sans-serif; background:#ebf8ff; padding:20px;">
+		<h2 style="color:#2b6cb0;">CampusCare</h2>
+		<p>Dear ` + counselorName + `,</p>
+		<p>You have accepted an <strong>online counselling session</strong>.</p>
+		<table style="border-collapse:collapse; width:100%; margin:16px 0;">
+			<tr><td style="padding:8px; font-weight:bold;">Student</td><td style="padding:8px;">` + studentName + `</td></tr>
+			<tr style="background:#bee3f8;"><td style="padding:8px; font-weight:bold;">Type</td><td style="padding:8px;">Online Session</td></tr>
+			<tr><td style="padding:8px; font-weight:bold;">Date &amp; Time</td><td style="padding:8px;">` + startTime + ` - ` + endTime + `</td></tr>
+		</table>
+		<p><strong>Google Meet Link:</strong><br/><a href="` + meetLink + `">` + meetLink + `</a></p>
+		<p style="color:#2b6cb0;">Best regards,<br/>CampusCare Team</p>
+	</div>`
+}

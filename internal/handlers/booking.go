@@ -116,8 +116,7 @@ func (h *BookingHandler) UpdateStatus(c *gin.Context) {
 	}
 
 	if body.Status == "accepted" {
-		// Calendar invite (with Google Meet for online) is sent to the student automatically
-		go h.createCalendarEvent(bookingID)
+		go h.handleAcceptedBooking(bookingID)
 	}
 
 	if body.Status == "declined" {
@@ -127,6 +126,25 @@ func (h *BookingHandler) UpdateStatus(c *gin.Context) {
 	audit.Log(h.DB, counselorID, "UPDATE_BOOKING", "booking", bookingID, body)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Booking updated"})
+}
+
+func (h *BookingHandler) handleAcceptedBooking(bookingID uuid.UUID) {
+	var sessionType string
+	err := h.DB.QueryRow(context.Background(),
+		`SELECT type::text FROM bookings WHERE id = $1`,
+		bookingID,
+	).Scan(&sessionType)
+	if err != nil {
+		return
+	}
+
+	if sessionType == "online" {
+		h.createCalendarEvent(bookingID)
+		return
+	}
+
+	// Keep existing accepted-email behavior for non-online sessions.
+	h.notifyStudentBookingStatus(bookingID, "accepted")
 }
 
 func (h *BookingHandler) notifyStudentBookingStatus(bookingID uuid.UUID, status string) {
@@ -163,15 +181,18 @@ func (h *BookingHandler) notifyStudentBookingStatus(bookingID uuid.UUID, status 
 
 func (h *BookingHandler) createCalendarEvent(bookingID uuid.UUID) {
 	var start, end time.Time
-	var location, sessionType, studentEmail string
+	var location, studentEmail, studentName, counselorEmail, counselorName string
 
 	err := h.DB.QueryRow(context.Background(),
-		`SELECT b.start_time, b.end_time, b.location, b.type::text, u.email
+		`SELECT b.start_time, b.end_time, COALESCE(b.location, ''), su.email, sp.display_name, cu.email, cp.full_name
 		 FROM bookings b
-		 JOIN users u ON u.id = b.student_id
+		 JOIN users su ON su.id = b.student_id
+		 JOIN users cu ON cu.id = b.counselor_id
+		 JOIN student_profiles sp ON sp.user_id = b.student_id
+		 JOIN counselor_profiles cp ON cp.user_id = b.counselor_id
 		 WHERE b.id = $1`,
 		bookingID,
-	).Scan(&start, &end, &location, &sessionType, &studentEmail)
+	).Scan(&start, &end, &location, &studentEmail, &studentName, &counselorEmail, &counselorName)
 	if err != nil {
 		return
 	}
@@ -181,13 +202,51 @@ func (h *BookingHandler) createCalendarEvent(bookingID uuid.UUID) {
 		return
 	}
 
-	calendarPkg.CreateEvent(
-		srv,
-		"Counseling Session",
-		start.Format(time.RFC3339),
-		end.Format(time.RFC3339),
+	event, err := calendarPkg.CreateEvent(srv, calendarPkg.CreateEventInput{
+		Summary:     "CampusCare Online Counseling Session",
+		Description: "Student: " + studentName + "\nCounselor: " + counselorName + "\nDetails: " + location,
+		Start:       start.Format(time.RFC3339),
+		End:         end.Format(time.RFC3339),
+		Location:    "Google Meet",
+		Attendees:   []string{studentEmail, counselorEmail},
+		Online:      true,
+	})
+	if err != nil {
+		return
+	}
+
+	if event != nil && event.EventID != "" {
+		_, _ = h.DB.Exec(context.Background(),
+			`UPDATE bookings SET google_event_id = $1, updated_at = now() WHERE id = $2`,
+			event.EventID,
+			bookingID,
+		)
+	}
+
+	meetLink := ""
+	if event != nil {
+		meetLink = event.MeetLink
+		if meetLink == "" {
+			meetLink = event.HtmlLink
+		}
+	}
+	if meetLink == "" {
+		return
+	}
+
+	startLabel := start.Format("02 Jan 2006 · 15:04")
+	endLabel := end.Format("15:04")
+
+	_ = h.Mailer.Send(
 		studentEmail,
-		sessionType == "online",
+		"Your Online Counseling Session Google Meet Link",
+		mail.OnlineMeetingStudentTemplate(studentName, counselorName, startLabel, endLabel, meetLink),
+	)
+
+	_ = h.Mailer.Send(
+		counselorEmail,
+		"Online Counseling Session Google Meet Link",
+		mail.OnlineMeetingCounselorTemplate(counselorName, studentName, startLabel, endLabel, meetLink),
 	)
 }
 
