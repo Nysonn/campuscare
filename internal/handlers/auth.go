@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/Nysonn/campuscare/internal/services"
 	"github.com/gin-gonic/gin"
@@ -39,6 +40,10 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
+
+	req.Email = normalizeEmail(req.Email)
+	req.Role = strings.ToLower(strings.TrimSpace(req.Role))
+	req.FullName = strings.TrimSpace(req.FullName)
 
 	if req.Role == "admin" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Admin accounts cannot be self-registered"})
@@ -110,11 +115,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	req.Email = normalizeEmail(req.Email)
+
 	var id uuid.UUID
 	var hash string
 
 	err := h.DB.QueryRow(context.Background(),
-		`SELECT id,password_hash FROM users WHERE email=$1`,
+		`SELECT id,password_hash FROM users WHERE lower(email)=lower($1)`,
 		req.Email,
 	).Scan(&id, &hash)
 
@@ -130,7 +137,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	c.SetSameSite(http.SameSiteNoneMode)
-	c.SetCookie("session_id", sessionID.String(), 3600*24, "/", "", true, true)
+	c.SetCookie("session_id", sessionID.String(), h.SessionService.SessionTTL*3600, "/", "", true, true)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Logged in", "user_id": id})
 }
@@ -150,12 +157,17 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 // splitName splits a full name into [firstName, lastName].
 // If only one word is provided, lastName is an empty string.
 func splitName(full string) [2]string {
+	full = strings.TrimSpace(full)
 	for i, ch := range full {
 		if ch == ' ' {
 			return [2]string{full[:i], full[i+1:]}
 		}
 	}
 	return [2]string{full, ""}
+}
+
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
 }
 
 func (h *AuthHandler) Profile(c *gin.Context) {
