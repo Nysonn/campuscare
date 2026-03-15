@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -137,21 +136,15 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	c.Header("Set-Cookie", fmt.Sprintf(
-		"session_id=%s; Max-Age=%d; Path=/; Secure; HttpOnly; SameSite=None; Partitioned",
-		sessionID.String(), h.SessionService.SessionTTL*3600,
-	))
-
-	c.JSON(http.StatusOK, gin.H{"message": "Logged in", "user_id": id})
+	c.JSON(http.StatusOK, gin.H{"message": "Logged in", "user_id": id, "token": sessionID.String()})
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
-	cookie, _ := c.Cookie("session_id")
-	id, _ := uuid.Parse(cookie)
-
-	h.SessionService.Delete(id)
-
-	c.Header("Set-Cookie", "session_id=; Max-Age=0; Path=/; Secure; HttpOnly; SameSite=None; Partitioned")
+	authHeader := c.GetHeader("Authorization")
+	raw := strings.TrimPrefix(authHeader, "Bearer ")
+	if id, err := uuid.Parse(raw); err == nil {
+		h.SessionService.Delete(id)
+	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out"})
 }

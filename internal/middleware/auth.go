@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/Nysonn/campuscare/internal/services"
 	"github.com/gin-gonic/gin"
@@ -10,15 +11,17 @@ import (
 
 func AuthRequired(sessionService *services.SessionService) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var raw string
 
-		cookie, err := c.Cookie("session_id")
-		if err != nil {
+		if auth := c.GetHeader("Authorization"); strings.HasPrefix(auth, "Bearer ") {
+			raw = strings.TrimPrefix(auth, "Bearer ")
+		} else {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			c.Abort()
 			return
 		}
 
-		sessionID, err := uuid.Parse(cookie)
+		sessionID, err := uuid.Parse(raw)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid session"})
 			c.Abort()
