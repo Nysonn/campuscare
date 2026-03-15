@@ -37,6 +37,10 @@ func main() {
 	}))
 
 	r.GET("/health", func(c *gin.Context) {
+		if err := database.Ping(c.Request.Context()); err != nil {
+			c.JSON(503, gin.H{"status": "db_unavailable"})
+			return
+		}
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 

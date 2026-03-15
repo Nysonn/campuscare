@@ -105,7 +105,10 @@ type LoginRequest struct {
 
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
-	c.BindJSON(&req)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
 
 	var id uuid.UUID
 	var hash string
@@ -120,7 +123,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	sessionID, _ := h.SessionService.Create(id)
+	sessionID, err := h.SessionService.Create(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create session, please try again"})
+		return
+	}
 
 	c.SetSameSite(http.SameSiteNoneMode)
 	c.SetCookie("session_id", sessionID.String(), 3600*24, "/", "", true, true)
