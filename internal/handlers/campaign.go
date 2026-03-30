@@ -235,8 +235,15 @@ func (h *CampaignHandler) PublicList(c *gin.Context) {
 func (h *CampaignHandler) ListPending(c *gin.Context) {
 
 	rows, err := h.DB.Query(context.Background(),
-		`SELECT c.id, c.student_id, c.title, c.description, c.target_amount, c.category, c.created_at
+		`SELECT c.id, c.student_id, c.title, c.description, c.target_amount, c.category, c.created_at,
+		        c.urgency_level, c.beneficiary_type,
+		        COALESCE(c.beneficiary_name, '') AS beneficiary_name,
+		        COALESCE(c.verification_contact_name, '') AS verification_contact_name,
+		        COALESCE(c.verification_contact_info, '') AS verification_contact_info,
+		        sp.is_anonymous,
+		        COALESCE(sp.display_name, '') AS student_name
 		 FROM campaigns c
+		 JOIN student_profiles sp ON sp.user_id = c.student_id
 		 WHERE c.status = 'pending'
 		   AND c.deleted_at IS NULL
 		 ORDER BY c.created_at ASC`,
@@ -253,19 +260,51 @@ func (h *CampaignHandler) ListPending(c *gin.Context) {
 	for rows.Next() {
 		var id, studentID uuid.UUID
 		var title, desc, category string
+		var urgencyLevel, beneficiaryType, beneficiaryName string
+		var verificationContactName, verificationContactInfo string
+		var studentName string
 		var target int64
 		var createdAt time.Time
+		var isAnonymous bool
 
-		rows.Scan(&id, &studentID, &title, &desc, &target, &category, &createdAt)
+		rows.Scan(&id, &studentID, &title, &desc, &target, &category, &createdAt,
+			&urgencyLevel, &beneficiaryType, &beneficiaryName,
+			&verificationContactName, &verificationContactInfo,
+			&isAnonymous, &studentName)
+
+		// Fetch attachments for this campaign.
+		attRows, attErr := h.DB.Query(context.Background(),
+			`SELECT file_url, label FROM campaign_attachments WHERE campaign_id = $1`, id,
+		)
+		var attachments []gin.H
+		if attErr == nil {
+			for attRows.Next() {
+				var url, label string
+				attRows.Scan(&url, &label)
+				attachments = append(attachments, gin.H{"url": url, "label": label})
+			}
+			attRows.Close()
+		}
+		if attachments == nil {
+			attachments = []gin.H{}
+		}
 
 		campaigns = append(campaigns, gin.H{
-			"id":            id,
-			"student_id":    studentID,
-			"title":         title,
-			"description":   desc,
-			"target_amount": target,
-			"category":      category,
-			"created_at":    createdAt,
+			"id":                        id,
+			"student_id":                studentID,
+			"student_name":              studentName,
+			"title":                     title,
+			"description":               desc,
+			"target_amount":             target,
+			"category":                  category,
+			"created_at":                createdAt,
+			"urgency_level":             urgencyLevel,
+			"beneficiary_type":          beneficiaryType,
+			"beneficiary_name":          beneficiaryName,
+			"verification_contact_name": verificationContactName,
+			"verification_contact_info": verificationContactInfo,
+			"is_anonymous":              isAnonymous,
+			"attachments":               attachments,
 		})
 	}
 
