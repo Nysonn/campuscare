@@ -1,44 +1,79 @@
 package mail
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
-	"net/smtp"
+	"io"
+	"net/http"
 	"os"
+	"strings"
+	"time"
 )
 
 type Mailer struct {
-	Host     string
-	Port     string
-	Email    string
-	Password string
+	APIKey string
+	From   string
+	client *http.Client
 }
 
 func NewMailer() *Mailer {
+	from := strings.TrimSpace(os.Getenv("RESEND_FROM"))
+	if from == "" {
+		from = "CampusCare <onboarding@resend.dev>"
+	}
+
 	return &Mailer{
-		Host:     os.Getenv("SMTP_HOST"),
-		Port:     os.Getenv("SMTP_PORT"),
-		Email:    os.Getenv("SMTP_EMAIL"),
-		Password: os.Getenv("SMTP_PASSWORD"),
+		APIKey: strings.TrimSpace(os.Getenv("RESEND_API_KEY")),
+		From:   from,
+		client: &http.Client{Timeout: 15 * time.Second},
 	}
 }
 
+type resendPayload struct {
+	From    string   `json:"from"`
+	To      []string `json:"to"`
+	Subject string   `json:"subject"`
+	HTML    string   `json:"html"`
+}
+
 func (m *Mailer) Send(to, subject, body string) error {
+	if m == nil {
+		return fmt.Errorf("mailer is nil")
+	}
+	if m.APIKey == "" {
+		return fmt.Errorf("resend api key is not configured")
+	}
+	if strings.TrimSpace(to) == "" {
+		return fmt.Errorf("recipient email is required")
+	}
 
-	auth := smtp.PlainAuth("", m.Email, m.Password, m.Host)
+	payload, err := json.Marshal(resendPayload{
+		From:    m.From,
+		To:      []string{to},
+		Subject: subject,
+		HTML:    body,
+	})
+	if err != nil {
+		return err
+	}
 
-	msg := fmt.Sprintf("From: CampusCare <%s>\r\n"+
-		"To: %s\r\n"+
-		"Subject: %s\r\n"+
-		"MIME-version: 1.0;\r\n"+
-		"Content-Type: text/html; charset=\"UTF-8\";\r\n\r\n"+
-		"%s",
-		m.Email, to, subject, body)
+	req, err := http.NewRequest(http.MethodPost, "https://api.resend.com/emails", bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+m.APIKey)
+	req.Header.Set("Content-Type", "application/json")
 
-	return smtp.SendMail(
-		m.Host+":"+m.Port,
-		auth,
-		m.Email,
-		[]string{to},
-		[]byte(msg),
-	)
+	resp, err := m.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		responseBody, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return fmt.Errorf("resend: unexpected status %d: %s", resp.StatusCode, strings.TrimSpace(string(responseBody)))
+	}
+	return nil
 }

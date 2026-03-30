@@ -44,7 +44,7 @@ The API is built in Go using the Gin framework, backed by a PostgreSQL database 
 | Migrations | golang-migrate |
 | Authentication | HTTP-only cookie sessions |
 | AI Chatbot | Groq API (llama-3.3-70b-versatile) |
-| Email | SMTP via internal mailer |
+| Email | Resend API via internal mailer |
 | Dev Hot Reload | Air |
 | Containerisation | Docker + Docker Compose |
 
@@ -80,7 +80,7 @@ campuscare/
       admin.go             Dashboard, ListUsers, UpdateUserStatus, DeleteCampaign,
                            ListBookings, ListContributions, ListCrisisFlags, AuditLogs.
     mail/
-      mailer.go            SMTP mailer setup.
+      mailer.go            Resend mailer setup.
       templates.go         Email body templates.
     middleware/
       auth.go              AuthRequired — validates session cookie and attaches user_id to context.
@@ -113,17 +113,16 @@ DATABASE_URL=postgres://user:password@host/dbname?sslmode=require
 APP_PORT=8080
 SESSION_TTL_HOURS=24
 GROQ_API_KEY=your_groq_api_key
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_USER=your_smtp_user
-SMTP_PASS=your_smtp_password
-SMTP_FROM=no-reply@yourdomain.com
+RESEND_API_KEY=your_resend_api_key
+RESEND_FROM=CampusCare <onboarding@resend.dev>
 ```
 
 Notes:
 - `DATABASE_URL` must not be wrapped in quotes inside the `.env` file. Docker Compose reads it literally including any quote characters.
 - `SESSION_TTL_HOURS` must be a valid integer. The app will fatal on startup if it is missing or non-numeric.
 - `GROQ_API_KEY` is required for the chatbot to function. Obtain it from console.groq.com.
+- `RESEND_API_KEY` is required for welcome emails and booking notifications.
+- `RESEND_FROM` should use a sender verified in Resend for production. `onboarding@resend.dev` is suitable for initial testing.
 - DNS is set to `8.8.8.8` and `8.8.4.4` in Docker Compose to ensure NeonDB (external cloud PostgreSQL) is reachable from inside containers.
 
 

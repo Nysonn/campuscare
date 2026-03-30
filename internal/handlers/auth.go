@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Nysonn/campuscare/internal/mail"
 	"github.com/Nysonn/campuscare/internal/services"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -24,6 +25,7 @@ func isUniqueViolation(err error) bool {
 type AuthHandler struct {
 	DB             *pgxpool.Pool
 	SessionService *services.SessionService
+	Mailer         *mail.Mailer
 }
 
 type RegisterRequest struct {
@@ -99,6 +101,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	tx.Commit(context.Background())
+
+	go h.Mailer.Send(
+		req.Email,
+		"Welcome to CampusCare!",
+		mail.WelcomeTemplate(req.FullName, req.Role),
+	)
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Registered", "user_id": userID})
 }

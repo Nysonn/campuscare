@@ -138,28 +138,28 @@ func (h *BookingHandler) handleAcceptedBooking(bookingID uuid.UUID) {
 		return
 	}
 
+	meetLink := ""
 	if sessionType == "online" {
-		h.createCalendarEvent(bookingID)
-		return
+		meetLink, _ = h.createCalendarEvent(bookingID)
 	}
 
-	// Keep existing accepted-email behavior for non-online sessions.
-	h.notifyStudentBookingStatus(bookingID, "accepted")
+	h.notifyStudentBookingAccepted(bookingID, meetLink)
+	h.notifyCounselorBookingAccepted(bookingID, meetLink)
 }
 
-func (h *BookingHandler) notifyStudentBookingStatus(bookingID uuid.UUID, status string) {
-	var studentEmail, studentName, counselorName, sessionType string
+func (h *BookingHandler) notifyCounselorBookingAccepted(bookingID uuid.UUID, meetLink string) {
+	var counselorEmail, counselorName, studentName, sessionType, location string
 	var startTime, endTime time.Time
 
 	err := h.DB.QueryRow(context.Background(),
-		`SELECT u.email, sp.display_name, cp.full_name, b.type::text, b.start_time, b.end_time
+		`SELECT cu.email, cp.full_name, sp.display_name, b.type::text, COALESCE(b.location,''), b.start_time, b.end_time
 		 FROM bookings b
-		 JOIN users u ON u.id = b.student_id
-		 JOIN student_profiles sp ON sp.user_id = b.student_id
+		 JOIN users cu ON cu.id = b.counselor_id
 		 JOIN counselor_profiles cp ON cp.user_id = b.counselor_id
+		 JOIN student_profiles sp ON sp.user_id = b.student_id
 		 WHERE b.id = $1`,
 		bookingID,
-	).Scan(&studentEmail, &studentName, &counselorName, &sessionType, &startTime, &endTime)
+	).Scan(&counselorEmail, &counselorName, &studentName, &sessionType, &location, &startTime, &endTime)
 	if err != nil {
 		return
 	}
@@ -167,19 +167,71 @@ func (h *BookingHandler) notifyStudentBookingStatus(bookingID uuid.UUID, status 
 	start := startTime.Format("02 Jan 2006 · 15:04")
 	end := endTime.Format("15:04")
 
+	_ = h.Mailer.Send(
+		counselorEmail,
+		"You Have Confirmed a Counselling Session",
+		mail.BookingAcceptedCounselorTemplate(counselorName, studentName, sessionType, start, end, location, meetLink),
+	)
+}
+
+func (h *BookingHandler) notifyStudentBookingAccepted(bookingID uuid.UUID, meetLink string) {
+	var studentEmail, studentName, counselorName, sessionType, location string
+	var startTime, endTime time.Time
+
+	err := h.DB.QueryRow(context.Background(),
+		`SELECT u.email, sp.display_name, cp.full_name, b.type::text, COALESCE(b.location, ''), b.start_time, b.end_time
+		 FROM bookings b
+		 JOIN users u ON u.id = b.student_id
+		 JOIN student_profiles sp ON sp.user_id = b.student_id
+		 JOIN counselor_profiles cp ON cp.user_id = b.counselor_id
+		 WHERE b.id = $1`,
+		bookingID,
+	).Scan(&studentEmail, &studentName, &counselorName, &sessionType, &location, &startTime, &endTime)
+	if err != nil {
+		return
+	}
+
+	start := startTime.Format("02 Jan 2006 · 15:04")
+	end := endTime.Format("15:04")
+
+	_ = h.Mailer.Send(
+		studentEmail,
+		"Your Counselling Session Has Been Confirmed",
+		mail.BookingAcceptedTemplate(studentName, counselorName, sessionType, start, end, location, meetLink),
+	)
+}
+
+func (h *BookingHandler) notifyStudentBookingStatus(bookingID uuid.UUID, status string) {
+	var studentEmail, studentName, counselorName string
+	var startTime, endTime time.Time
+
+	err := h.DB.QueryRow(context.Background(),
+		`SELECT u.email, sp.display_name, cp.full_name, b.start_time, b.end_time
+		 FROM bookings b
+		 JOIN users u ON u.id = b.student_id
+		 JOIN student_profiles sp ON sp.user_id = b.student_id
+		 JOIN counselor_profiles cp ON cp.user_id = b.counselor_id
+		 WHERE b.id = $1`,
+		bookingID,
+	).Scan(&studentEmail, &studentName, &counselorName, &startTime, &endTime)
+	if err != nil {
+		return
+	}
+
+	start := startTime.Format("02 Jan 2006 · 15:04")
+
 	var subject, body string
-	if status == "accepted" {
-		subject = "Your Counselling Session Has Been Confirmed"
-		body = mail.BookingAcceptedTemplate(studentName, counselorName, sessionType, start, end)
-	} else {
+	if status == "declined" {
 		subject = "Your Counselling Session Request Was Declined"
 		body = mail.BookingDeclinedTemplate(studentName, counselorName, start)
+	} else {
+		return
 	}
 
 	h.Mailer.Send(studentEmail, subject, body)
 }
 
-func (h *BookingHandler) createCalendarEvent(bookingID uuid.UUID) {
+func (h *BookingHandler) createCalendarEvent(bookingID uuid.UUID) (string, error) {
 	var start, end time.Time
 	var location, studentEmail, studentName, counselorEmail, counselorName string
 
@@ -194,12 +246,12 @@ func (h *BookingHandler) createCalendarEvent(bookingID uuid.UUID) {
 		bookingID,
 	).Scan(&start, &end, &location, &studentEmail, &studentName, &counselorEmail, &counselorName)
 	if err != nil {
-		return
+		return "", err
 	}
 
 	srv, err := calendarPkg.NewService()
 	if err != nil {
-		return
+		return "", err
 	}
 
 	event, err := calendarPkg.CreateEvent(srv, calendarPkg.CreateEventInput{
@@ -212,7 +264,7 @@ func (h *BookingHandler) createCalendarEvent(bookingID uuid.UUID) {
 		Online:      true,
 	})
 	if err != nil {
-		return
+		return "", err
 	}
 
 	if event != nil && event.EventID != "" {
@@ -230,24 +282,8 @@ func (h *BookingHandler) createCalendarEvent(bookingID uuid.UUID) {
 			meetLink = event.HtmlLink
 		}
 	}
-	if meetLink == "" {
-		return
-	}
 
-	startLabel := start.Format("02 Jan 2006 · 15:04")
-	endLabel := end.Format("15:04")
-
-	_ = h.Mailer.Send(
-		studentEmail,
-		"Your Online Counseling Session Google Meet Link",
-		mail.OnlineMeetingStudentTemplate(studentName, counselorName, startLabel, endLabel, meetLink),
-	)
-
-	_ = h.Mailer.Send(
-		counselorEmail,
-		"Online Counseling Session Google Meet Link",
-		mail.OnlineMeetingCounselorTemplate(counselorName, studentName, startLabel, endLabel, meetLink),
-	)
+	return meetLink, nil
 }
 
 func (h *BookingHandler) ListCounselors(c *gin.Context) {

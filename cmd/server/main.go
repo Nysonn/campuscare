@@ -24,9 +24,12 @@ func main() {
 		SessionTTL: cfg.SessionTTL,
 	}
 
+	mailer := mail.NewMailer()
+
 	authHandler := &handlers.AuthHandler{
 		DB:             database,
 		SessionService: sessionService,
+		Mailer:         mailer,
 	}
 
 	r := gin.Default()
@@ -71,7 +74,6 @@ func main() {
 
 	r.GET("/campaigns", campaignHandler.PublicList)
 
-	mailer := mail.NewMailer()
 	contributionHandler := &handlers.ContributionHandler{
 		DB:     database,
 		Mailer: mailer,

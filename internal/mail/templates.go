@@ -2,12 +2,19 @@ package mail
 
 import "fmt"
 
-func BookingAcceptedTemplate(studentName, counselorName, sessionType, startTime, endTime string) string {
+func BookingAcceptedTemplate(studentName, counselorName, sessionType, startTime, endTime, location, meetLink string) string {
 	sessionLabel := "In-Person Session"
 	meetNote := ""
+	locationRow := ""
 	if sessionType == "online" {
 		sessionLabel = "Online Session"
-		meetNote = `<p style="color:#2f855a;"><strong>Note:</strong> Your counselor will send you a Google Meet link to your registered email before the session.</p>`
+		if meetLink != "" {
+			meetNote = `<p style="color:#2f855a;"><strong>Join link:</strong><br/><a href="` + meetLink + `">` + meetLink + `</a></p>`
+		} else {
+			meetNote = `<p style="color:#2f855a;"><strong>Note:</strong> This session is online. A join link will be shared with you shortly.</p>`
+		}
+	} else if location != "" {
+		locationRow = `<tr><td style="padding:8px; font-weight:bold;">Location</td><td style="padding:8px;">` + location + `</td></tr>`
 	}
 	return `
 	<div style="font-family: Arial, sans-serif; background:#f0fff4; padding:20px;">
@@ -18,6 +25,7 @@ func BookingAcceptedTemplate(studentName, counselorName, sessionType, startTime,
 			<tr><td style="padding:8px; font-weight:bold;">Counselor</td><td style="padding:8px;">` + counselorName + `</td></tr>
 			<tr style="background:#e6ffed;"><td style="padding:8px; font-weight:bold;">Type</td><td style="padding:8px;">` + sessionLabel + `</td></tr>
 			<tr><td style="padding:8px; font-weight:bold;">Date &amp; Time</td><td style="padding:8px;">` + startTime + ` – ` + endTime + `</td></tr>
+			` + locationRow + `
 		</table>
 		` + meetNote + `
 		<p>Please be available at the scheduled time. If you need to reschedule, contact your counselor.</p>
@@ -77,6 +85,55 @@ func OnlineMeetingCounselorTemplate(counselorName, studentName, startTime, endTi
 			<tr><td style="padding:8px; font-weight:bold;">Date &amp; Time</td><td style="padding:8px;">` + startTime + ` - ` + endTime + `</td></tr>
 		</table>
 		<p><strong>Google Meet Link:</strong><br/><a href="` + meetLink + `">` + meetLink + `</a></p>
+		<p style="color:#2b6cb0;">Best regards,<br/>CampusCare Team</p>
+	</div>`
+}
+
+func WelcomeTemplate(name, role string) string {
+	roleLabel := "student"
+	roleNote := "You can now book counselling sessions, create campaigns, and access mental health resources."
+	if role == "counselor" {
+		roleLabel = "counsellor"
+		roleNote = "You can now manage appointment requests, conduct online and physical sessions, and support students who need you."
+	}
+	return `
+	<div style="font-family: Arial, sans-serif; background:#f0fff4; padding:32px; max-width:560px; margin:auto;">
+		<h2 style="color:#2f855a; margin-bottom:4px;">Welcome to CampusCare</h2>
+		<p style="color:#4a5568;">Hi ` + name + `,</p>
+		<p style="color:#4a5568;">
+			Your account has been created successfully as a <strong>` + roleLabel + `</strong>.
+			` + roleNote + `
+		</p>
+		<p style="color:#4a5568;">If you have any questions or need help getting started, feel free to reach out to our support team.</p>
+		<p style="margin-top:24px; color:#2f855a;">Welcome aboard,<br/><strong>The CampusCare Team</strong></p>
+	</div>`
+}
+
+func BookingAcceptedCounselorTemplate(counselorName, studentName, sessionType, startTime, endTime, location, meetLink string) string {
+	sessionLabel := "In-Person Session"
+	meetRow := ""
+	locationRow := ""
+	if sessionType == "online" {
+		sessionLabel = "Online Session"
+		if meetLink != "" {
+			meetRow = `<tr><td style="padding:8px; font-weight:bold;">Join Link</td><td style="padding:8px;"><a href="` + meetLink + `">` + meetLink + `</a></td></tr>`
+		}
+	} else if location != "" {
+		locationRow = `<tr><td style="padding:8px; font-weight:bold;">Location</td><td style="padding:8px;">` + location + `</td></tr>`
+	}
+	return `
+	<div style="font-family: Arial, sans-serif; background:#ebf8ff; padding:20px;">
+		<h2 style="color:#2b6cb0;">CampusCare</h2>
+		<p>Dear ` + counselorName + `,</p>
+		<p>You have <strong>confirmed</strong> a counselling session with the following details:</p>
+		<table style="border-collapse:collapse; width:100%; margin:16px 0;">
+			<tr><td style="padding:8px; font-weight:bold;">Student</td><td style="padding:8px;">` + studentName + `</td></tr>
+			<tr style="background:#bee3f8;"><td style="padding:8px; font-weight:bold;">Type</td><td style="padding:8px;">` + sessionLabel + `</td></tr>
+			<tr><td style="padding:8px; font-weight:bold;">Date &amp; Time</td><td style="padding:8px;">` + startTime + ` – ` + endTime + `</td></tr>
+			` + locationRow + `
+			` + meetRow + `
+		</table>
+		<p>The student has been notified. Please be available at the scheduled time.</p>
 		<p style="color:#2b6cb0;">Best regards,<br/>CampusCare Team</p>
 	</div>`
 }

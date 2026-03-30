@@ -97,6 +97,8 @@ Create a new user account. Supported roles are `student` and `counselor`.
 }
 ```
 
+After a successful signup, CampusCare sends a welcome email to the registered address.
+
 ---
 
 ### Login
@@ -538,6 +540,7 @@ Book a counseling session with a counselor. Requires an authenticated student se
 ---
 
 ### Update Booking Status
+When a counselor accepts a booking, CampusCare emails both the student and the counselor with the scheduled time and whether the session is online or physical. Physical sessions include the location. Online sessions include the join link when Google Calendar returns one.
 
 Accept or decline a booking request. This action is performed by the counselor.
 
