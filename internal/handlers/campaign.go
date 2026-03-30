@@ -15,13 +15,23 @@ type CampaignHandler struct {
 	DB *pgxpool.Pool
 }
 
+type AttachmentInput struct {
+	URL   string `json:"url"`
+	Label string `json:"label"`
+}
+
 type CreateCampaignRequest struct {
-	Title       string   `json:"title"`
-	Description string   `json:"description"`
-	Target      int64    `json:"target_amount"`
-	Category    string   `json:"category"`
-	Attachments []string `json:"attachments"`
-	IsAnonymous bool     `json:"is_anonymous"`
+	Title                   string           `json:"title"`
+	Description             string           `json:"description"`
+	Target                  int64            `json:"target_amount"`
+	Category                string           `json:"category"`
+	Attachments             []AttachmentInput `json:"attachments"`
+	IsAnonymous             bool             `json:"is_anonymous"`
+	UrgencyLevel            string           `json:"urgency_level"`
+	BeneficiaryType         string           `json:"beneficiary_type"`
+	BeneficiaryName         string           `json:"beneficiary_name"`
+	VerificationContactName string           `json:"verification_contact_name"`
+	VerificationContactInfo string           `json:"verification_contact_info"`
 }
 
 func (h *CampaignHandler) Create(c *gin.Context) {
@@ -34,13 +44,26 @@ func (h *CampaignHandler) Create(c *gin.Context) {
 		return
 	}
 
+	urgency := req.UrgencyLevel
+	if urgency == "" {
+		urgency = "normal"
+	}
+	beneficiaryType := req.BeneficiaryType
+	if beneficiaryType == "" {
+		beneficiaryType = "self"
+	}
+
 	var campaignID uuid.UUID
 	err := h.DB.QueryRow(context.Background(),
 		`INSERT INTO campaigns
-		 (student_id,title,description,target_amount,category)
-		 VALUES ($1,$2,$3,$4,$5)
+		 (student_id, title, description, target_amount, category,
+		  urgency_level, beneficiary_type, beneficiary_name,
+		  verification_contact_name, verification_contact_info)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 		 RETURNING id`,
 		userID, req.Title, req.Description, req.Target, req.Category,
+		urgency, beneficiaryType, req.BeneficiaryName,
+		req.VerificationContactName, req.VerificationContactInfo,
 	).Scan(&campaignID)
 
 	if err != nil {
@@ -48,11 +71,15 @@ func (h *CampaignHandler) Create(c *gin.Context) {
 		return
 	}
 
-	for _, file := range req.Attachments {
+	for _, att := range req.Attachments {
+		label := att.Label
+		if label == "" {
+			label = "Document"
+		}
 		h.DB.Exec(context.Background(),
-			`INSERT INTO campaign_attachments (campaign_id,file_url)
-			 VALUES ($1,$2)`,
-			campaignID, file,
+			`INSERT INTO campaign_attachments (campaign_id, file_url, label)
+			 VALUES ($1,$2,$3)`,
+			campaignID, att.URL, label,
 		)
 	}
 
@@ -75,16 +102,33 @@ func (h *CampaignHandler) Update(c *gin.Context) {
 	var req CreateCampaignRequest
 	c.BindJSON(&req)
 
+	urgency := req.UrgencyLevel
+	if urgency == "" {
+		urgency = "normal"
+	}
+	beneficiaryType := req.BeneficiaryType
+	if beneficiaryType == "" {
+		beneficiaryType = "self"
+	}
+
 	_, err := h.DB.Exec(context.Background(),
 		`UPDATE campaigns
 		 SET title=$1,
 		     description=$2,
 		     target_amount=$3,
 		     category=$4,
+		     urgency_level=$5,
+		     beneficiary_type=$6,
+		     beneficiary_name=$7,
+		     verification_contact_name=$8,
+		     verification_contact_info=$9,
 		     status='pending',
 		     updated_at=now()
-		 WHERE id=$5 AND student_id=$6 AND deleted_at IS NULL`,
-		req.Title, req.Description, req.Target, req.Category, campaignID, userID,
+		 WHERE id=$10 AND student_id=$11 AND deleted_at IS NULL`,
+		req.Title, req.Description, req.Target, req.Category,
+		urgency, beneficiaryType, req.BeneficiaryName,
+		req.VerificationContactName, req.VerificationContactInfo,
+		campaignID, userID,
 	)
 
 	if err != nil {
@@ -253,7 +297,11 @@ func (h *CampaignHandler) MyCampaigns(c *gin.Context) {
 	userID := c.MustGet("user_id").(uuid.UUID)
 
 	rows, err := h.DB.Query(context.Background(),
-		`SELECT id, title, description, target_amount, current_amount, category, status, created_at
+		`SELECT id, title, description, target_amount, current_amount, category, status, created_at,
+		        urgency_level, beneficiary_type,
+		        COALESCE(beneficiary_name, '') AS beneficiary_name,
+		        COALESCE(verification_contact_name, '') AS verification_contact_name,
+		        COALESCE(verification_contact_info, '') AS verification_contact_info
 		 FROM campaigns
 		 WHERE student_id = $1
 		   AND deleted_at IS NULL
@@ -271,20 +319,29 @@ func (h *CampaignHandler) MyCampaigns(c *gin.Context) {
 	for rows.Next() {
 		var id uuid.UUID
 		var title, desc, category, status string
+		var urgencyLevel, beneficiaryType, beneficiaryName string
+		var verificationContactName, verificationContactInfo string
 		var target, current int64
 		var createdAt time.Time
 
-		rows.Scan(&id, &title, &desc, &target, &current, &category, &status, &createdAt)
+		rows.Scan(&id, &title, &desc, &target, &current, &category, &status, &createdAt,
+			&urgencyLevel, &beneficiaryType, &beneficiaryName,
+			&verificationContactName, &verificationContactInfo)
 
 		campaigns = append(campaigns, gin.H{
-			"id":             id,
-			"title":          title,
-			"description":    desc,
-			"target_amount":  target,
-			"current_amount": current,
-			"category":       category,
-			"status":         status,
-			"created_at":     createdAt,
+			"id":                        id,
+			"title":                     title,
+			"description":               desc,
+			"target_amount":             target,
+			"current_amount":            current,
+			"category":                  category,
+			"status":                    status,
+			"created_at":                createdAt,
+			"urgency_level":             urgencyLevel,
+			"beneficiary_type":          beneficiaryType,
+			"beneficiary_name":          beneficiaryName,
+			"verification_contact_name": verificationContactName,
+			"verification_contact_info": verificationContactInfo,
 		})
 	}
 
