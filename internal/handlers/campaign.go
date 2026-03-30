@@ -136,6 +136,21 @@ func (h *CampaignHandler) Update(c *gin.Context) {
 		return
 	}
 
+	// Replace attachments: delete existing then insert new ones.
+	h.DB.Exec(context.Background(),
+		`DELETE FROM campaign_attachments WHERE campaign_id=$1`, campaignID,
+	)
+	for _, att := range req.Attachments {
+		label := att.Label
+		if label == "" {
+			label = "Document"
+		}
+		h.DB.Exec(context.Background(),
+			`INSERT INTO campaign_attachments (campaign_id, file_url, label) VALUES ($1,$2,$3)`,
+			campaignID, att.URL, label,
+		)
+	}
+
 	audit.Log(h.DB, userID, "UPDATE_CAMPAIGN", "campaign", campaignID, req)
 
 	h.DB.Exec(context.Background(),
@@ -328,6 +343,23 @@ func (h *CampaignHandler) MyCampaigns(c *gin.Context) {
 			&urgencyLevel, &beneficiaryType, &beneficiaryName,
 			&verificationContactName, &verificationContactInfo)
 
+		// Fetch attachments for this campaign.
+		attRows, attErr := h.DB.Query(context.Background(),
+			`SELECT file_url, label FROM campaign_attachments WHERE campaign_id = $1`, id,
+		)
+		var attachments []gin.H
+		if attErr == nil {
+			for attRows.Next() {
+				var url, label string
+				attRows.Scan(&url, &label)
+				attachments = append(attachments, gin.H{"url": url, "label": label})
+			}
+			attRows.Close()
+		}
+		if attachments == nil {
+			attachments = []gin.H{}
+		}
+
 		campaigns = append(campaigns, gin.H{
 			"id":                        id,
 			"title":                     title,
@@ -342,6 +374,7 @@ func (h *CampaignHandler) MyCampaigns(c *gin.Context) {
 			"beneficiary_name":          beneficiaryName,
 			"verification_contact_name": verificationContactName,
 			"verification_contact_info": verificationContactInfo,
+			"attachments":               attachments,
 		})
 	}
 

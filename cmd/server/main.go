@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net/http"
+
 	"github.com/Nysonn/campuscare/internal/chatbot"
 	"github.com/Nysonn/campuscare/internal/config"
 	"github.com/Nysonn/campuscare/internal/db"
@@ -28,6 +30,12 @@ func main() {
 	}
 
 	r := gin.Default()
+
+	// Limit request body to 50 MB to accommodate base64-encoded file uploads.
+	r.Use(func(c *gin.Context) {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 50<<20)
+		c.Next()
+	})
 
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:5173", "https://campuscareug.web.app", "https://campuscareug.firebaseapp.com", "http://192.168.11.23:5173", "http://172.23.0.1:5173", "http://172.19.0.1:5173"},
