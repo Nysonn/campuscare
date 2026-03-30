@@ -167,7 +167,7 @@ func (h *BookingHandler) notifyCounselorBookingAccepted(bookingID uuid.UUID, mee
 	start := startTime.Format("02 Jan 2006 · 15:04")
 	end := endTime.Format("15:04")
 
-	_ = h.Mailer.Send(
+	h.Mailer.SendAsync(
 		counselorEmail,
 		"You Have Confirmed a Counselling Session",
 		mail.BookingAcceptedCounselorTemplate(counselorName, studentName, sessionType, start, end, location, meetLink),
@@ -194,7 +194,7 @@ func (h *BookingHandler) notifyStudentBookingAccepted(bookingID uuid.UUID, meetL
 	start := startTime.Format("02 Jan 2006 · 15:04")
 	end := endTime.Format("15:04")
 
-	_ = h.Mailer.Send(
+	h.Mailer.SendAsync(
 		studentEmail,
 		"Your Counselling Session Has Been Confirmed",
 		mail.BookingAcceptedTemplate(studentName, counselorName, sessionType, start, end, location, meetLink),
@@ -228,7 +228,7 @@ func (h *BookingHandler) notifyStudentBookingStatus(bookingID uuid.UUID, status 
 		return
 	}
 
-	h.Mailer.Send(studentEmail, subject, body)
+	h.Mailer.SendAsync(studentEmail, subject, body)
 }
 
 func (h *BookingHandler) createCalendarEvent(bookingID uuid.UUID) (string, error) {

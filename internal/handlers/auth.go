@@ -102,7 +102,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	tx.Commit(context.Background())
 
-	go h.Mailer.Send(
+	h.Mailer.SendAsync(
 		req.Email,
 		"Welcome to CampusCare!",
 		mail.WelcomeTemplate(req.FullName, req.Role),

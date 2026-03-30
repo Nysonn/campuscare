@@ -76,7 +76,7 @@ func (h *ContributionHandler) Create(c *gin.Context) {
 	)
 
 	// Send receipt email in background to avoid blocking the response
-	go h.Mailer.Send(
+	h.Mailer.SendAsync(
 		req.DonorEmail,
 		"CampusCare Donation Receipt",
 		mail.DonationReceiptTemplate(req.DonorName, req.Amount),

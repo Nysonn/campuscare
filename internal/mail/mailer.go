@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -23,11 +24,19 @@ func NewMailer() *Mailer {
 		from = "CampusCare <onboarding@resend.dev>"
 	}
 
-	return &Mailer{
+	mailer := &Mailer{
 		APIKey: strings.TrimSpace(os.Getenv("RESEND_API_KEY")),
 		From:   from,
 		client: &http.Client{Timeout: 15 * time.Second},
 	}
+
+	if mailer.APIKey == "" {
+		log.Printf("mail: RESEND_API_KEY is empty; email delivery is disabled")
+	} else {
+		log.Printf("mail: resend mailer configured with from=%q", mailer.From)
+	}
+
+	return mailer
 }
 
 type resendPayload struct {
@@ -76,4 +85,14 @@ func (m *Mailer) Send(to, subject, body string) error {
 		return fmt.Errorf("resend: unexpected status %d: %s", resp.StatusCode, strings.TrimSpace(string(responseBody)))
 	}
 	return nil
+}
+
+func (m *Mailer) SendAsync(to, subject, body string) {
+	go func() {
+		if err := m.Send(to, subject, body); err != nil {
+			log.Printf("mail: failed to send message to=%q subject=%q from=%q: %v", to, subject, m.From, err)
+			return
+		}
+		log.Printf("mail: sent message to=%q subject=%q", to, subject)
+	}()
 }
