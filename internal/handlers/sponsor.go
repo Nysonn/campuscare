@@ -60,6 +60,22 @@ func (h *SponsorHandler) BecomeSponsor(c *gin.Context) {
 		return
 	}
 
+	go func() {
+		var sponsorEmail, sponsorName string
+		if err := h.DB.QueryRow(context.Background(),
+			`SELECT u.email, sp.display_name FROM users u
+			 JOIN student_profiles sp ON sp.user_id = u.id WHERE u.id = $1`,
+			userID,
+		).Scan(&sponsorEmail, &sponsorName); err != nil {
+			return
+		}
+		h.Mailer.SendAsync(
+			sponsorEmail,
+			"You're now a sponsor on CampusCare!",
+			mail.NewSponsorTemplate(sponsorName),
+		)
+	}()
+
 	c.JSON(http.StatusOK, gin.H{"message": "You are now listed as a sponsor"})
 }
 

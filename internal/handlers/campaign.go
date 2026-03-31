@@ -6,13 +6,15 @@ import (
 	"time"
 
 	"github.com/Nysonn/campuscare/internal/audit"
+	"github.com/Nysonn/campuscare/internal/mail"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type CampaignHandler struct {
-	DB *pgxpool.Pool
+	DB     *pgxpool.Pool
+	Mailer *mail.Mailer
 }
 
 type AttachmentInput struct {
@@ -431,6 +433,10 @@ func (h *CampaignHandler) Approve(c *gin.Context) {
 
 	audit.Log(h.DB, adminID, "APPROVE_CAMPAIGN", "campaign", campaignID, body)
 
+	if body.Status == "approved" {
+		go h.notifyStudentCampaignApproved(campaignID)
+	}
+
 	c.JSON(http.StatusOK, gin.H{"message": "Campaign status updated"})
 }
 
@@ -555,4 +561,24 @@ func (h *CampaignHandler) MyCampaigns(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, campaigns)
+}
+
+func (h *CampaignHandler) notifyStudentCampaignApproved(campaignID uuid.UUID) {
+	var studentEmail, studentName, campaignTitle string
+	if err := h.DB.QueryRow(context.Background(),
+		`SELECT u.email, sp.display_name, c.title
+		 FROM campaigns c
+		 JOIN users u ON u.id = c.student_id
+		 JOIN student_profiles sp ON sp.user_id = c.student_id
+		 WHERE c.id = $1`,
+		campaignID,
+	).Scan(&studentEmail, &studentName, &campaignTitle); err != nil {
+		return
+	}
+
+	h.Mailer.SendAsync(
+		studentEmail,
+		"Your CampusCare campaign has been approved!",
+		mail.CampaignApprovedTemplate(studentName, campaignTitle),
+	)
 }

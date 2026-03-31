@@ -61,7 +61,7 @@ func main() {
 	r.POST("/login", authHandler.Login)
 	r.POST("/logout", authHandler.Logout)
 
-	campaignHandler := &handlers.CampaignHandler{DB: database}
+	campaignHandler := &handlers.CampaignHandler{DB: database, Mailer: mailer}
 
 	auth := r.Group("/")
 	auth.Use(middleware.AuthRequired(sessionService))

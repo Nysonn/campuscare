@@ -232,3 +232,44 @@ func BookingAcceptedCounselorTemplate(counselorName, studentName, sessionType, s
 		<p style="color:#2b6cb0;">Best regards,<br/>CampusCare Team</p>
 	</div>`
 }
+
+func CampaignApprovedTemplate(studentName, campaignTitle string) string {
+	return `
+	<div style="font-family: Arial, sans-serif; background:#f0fff4; padding:32px; max-width:560px; margin:auto;">
+		<h2 style="color:#2f855a; margin-bottom:4px;">CampusCare — Campaign Approved!</h2>
+		<p style="color:#4a5568;">Hi ` + studentName + `,</p>
+		<p style="color:#4a5568;">
+			We're pleased to let you know that your campaign <strong>"` + campaignTitle + `"</strong>
+			has been <strong>approved</strong> by the CampusCare team.
+		</p>
+		<p style="color:#4a5568;">
+			Your campaign is now publicly visible and can start receiving contributions from the community.
+			You can track donations and manage your campaign from your CampusCare dashboard.
+		</p>
+		<p style="color:#4a5568; font-style:italic;">
+			Thank you for trusting CampusCare as a platform to share your story and reach out for support.
+		</p>
+		<p style="margin-top:24px; color:#2f855a;">With care,<br/><strong>The CampusCare Team</strong></p>
+	</div>`
+}
+
+func NewSponsorTemplate(sponsorName string) string {
+	return `
+	<div style="font-family: Arial, sans-serif; background:#f0fff4; padding:32px; max-width:560px; margin:auto;">
+		<h2 style="color:#2f855a; margin-bottom:4px;">CampusCare — You're Now a Sponsor!</h2>
+		<p style="color:#4a5568;">Hi ` + sponsorName + `,</p>
+		<p style="color:#4a5568;">
+			Thank you for stepping up to support your fellow students. You are now listed as an
+			<strong>active sponsor</strong> on CampusCare.
+		</p>
+		<p style="color:#4a5568;">
+			Students who are looking for peer support will be able to find your profile and send you
+			a connection request. You can review and accept or decline requests at any time from
+			your CampusCare dashboard.
+		</p>
+		<p style="color:#4a5568; font-style:italic;">
+			Your presence as a sponsor makes a real difference. Thank you for being part of our community.
+		</p>
+		<p style="margin-top:24px; color:#2f855a;">With gratitude,<br/><strong>The CampusCare Team</strong></p>
+	</div>`
+}
