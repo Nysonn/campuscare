@@ -136,6 +136,29 @@ func main() {
 	studentSponsor.GET("/sponsorships/mine", sponsorHandler.MySponsorship)
 	studentSponsor.GET("/stream/token", sponsorHandler.GetStreamToken)
 
+	// ── Behaviour Tracking routes (student-only) ─────────────────────────────
+	behaviourHandler := &handlers.BehaviourHandler{DB: database}
+
+	studentBehaviour := auth.Group("/behaviour")
+	studentBehaviour.Use(middleware.RequireRole(database, "student"))
+
+	studentBehaviour.POST("/goals", behaviourHandler.CreateGoal)
+	studentBehaviour.GET("/goals/current", behaviourHandler.GetCurrentGoal)
+	studentBehaviour.GET("/goals", behaviourHandler.GetAllGoals)
+	studentBehaviour.POST("/goals/:id/logs", behaviourHandler.LogDay)
+	studentBehaviour.POST("/goals/:id/complete", behaviourHandler.CompleteGoal)
+	studentBehaviour.GET("/goals/:id/stats", behaviourHandler.GetGoalStats)
+
+	// ── Self-Evaluation routes (student-only) ─────────────────────────────────
+	evaluationHandler := &handlers.EvaluationHandler{DB: database}
+
+	studentEval := auth.Group("/evaluations")
+	studentEval.Use(middleware.RequireRole(database, "student"))
+
+	studentEval.GET("/questions", evaluationHandler.GetQuestions)
+	studentEval.POST("", evaluationHandler.SubmitEvaluation)
+	studentEval.GET("/history", evaluationHandler.GetHistory)
+
 	// ── Admin routes ──────────────────────────────────────────────────────────
 	admin := r.Group("/admin")
 	admin.Use(middleware.AuthRequired(sessionService))
