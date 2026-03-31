@@ -109,6 +109,83 @@ func WelcomeTemplate(name, role string) string {
 	</div>`
 }
 
+func SponsorRequestReceivedTemplate(sponsorName, requesterName string) string {
+	return `
+	<div style="font-family: Arial, sans-serif; background:#f0fff4; padding:32px; max-width:560px; margin:auto;">
+		<h2 style="color:#2f855a; margin-bottom:4px;">CampusCare — Sponsor Request</h2>
+		<p style="color:#4a5568;">Hi ` + sponsorName + `,</p>
+		<p style="color:#4a5568;">
+			A fellow student, <strong>` + requesterName + `</strong>, has reached out and is hoping you could be their sponsor.
+			As a sponsor, you offer a safe space for someone to share what they're going through and receive encouragement
+			on their wellbeing journey.
+		</p>
+		<p style="color:#4a5568;">
+			Log in to your CampusCare dashboard to review their request and decide whether you'd like to accept.
+			There's no pressure — only accept if you feel ready to support someone at this time.
+		</p>
+		<p style="margin-top:24px; color:#2f855a;">With care,<br/><strong>The CampusCare Team</strong></p>
+	</div>`
+}
+
+func SponsorRequestAcceptedTemplate(sponseeName, sponsorName string) string {
+	return `
+	<div style="font-family: Arial, sans-serif; background:#f0fff4; padding:32px; max-width:560px; margin:auto;">
+		<h2 style="color:#2f855a; margin-bottom:4px;">CampusCare — Your Request Was Accepted!</h2>
+		<p style="color:#4a5568;">Hi ` + sponseeName + `,</p>
+		<p style="color:#4a5568;">
+			Great news! <strong>` + sponsorName + `</strong> has accepted your request to be your sponsor.
+		</p>
+		<p style="color:#4a5568;">
+			You can now open a private conversation with them directly from your CampusCare dashboard.
+			This is your space — feel free to share how you're doing, ask for advice, or simply talk things through.
+			Your sponsor is here to listen without judgement.
+		</p>
+		<p style="color:#4a5568; font-style:italic;">
+			Remember: this is a peer support connection. For urgent mental health concerns, please also reach out
+			to a professional counsellor through your bookings section.
+		</p>
+		<p style="margin-top:24px; color:#2f855a;">Take care,<br/><strong>The CampusCare Team</strong></p>
+	</div>`
+}
+
+func SponsorRequestDeclinedTemplate(sponseeName, sponsorName string) string {
+	return `
+	<div style="font-family: Arial, sans-serif; background:#fffbeb; padding:32px; max-width:560px; margin:auto;">
+		<h2 style="color:#b7791f; margin-bottom:4px;">CampusCare — Sponsor Request Update</h2>
+		<p style="color:#4a5568;">Hi ` + sponseeName + `,</p>
+		<p style="color:#4a5568;">
+			<strong>` + sponsorName + `</strong> was unable to take on a new sponsee at this time.
+			Please don't take this personally — sponsors sometimes reach capacity or have their own commitments.
+		</p>
+		<p style="color:#4a5568;">
+			You can browse other sponsors in your dashboard and send a new request whenever you feel ready.
+			You're also always welcome to book a session with one of our professional counsellors.
+		</p>
+		<p style="margin-top:24px; color:#b7791f;">Take care,<br/><strong>The CampusCare Team</strong></p>
+	</div>`
+}
+
+func SponsorshipTerminatedTemplate(sponseeName, sponsorName string) string {
+	return `
+	<div style="font-family: Arial, sans-serif; background:#fff5f5; padding:32px; max-width:560px; margin:auto;">
+		<h2 style="color:#c53030; margin-bottom:4px;">CampusCare — Sponsorship Ended</h2>
+		<p style="color:#4a5568;">Hi ` + sponseeName + `,</p>
+		<p style="color:#4a5568;">
+			Your sponsorship with <strong>` + sponsorName + `</strong> has come to an end.
+			This can happen when a sponsor needs to step back for their own wellbeing.
+		</p>
+		<p style="color:#4a5568;">
+			Your conversations and support history are preserved. You're welcome to look for a new sponsor
+			from your dashboard, or book a session with a professional counsellor if you need additional support
+			during this transition.
+		</p>
+		<p style="color:#4a5568; font-style:italic;">
+			You are not alone, and help is always available on CampusCare.
+		</p>
+		<p style="margin-top:24px; color:#c53030;">With care,<br/><strong>The CampusCare Team</strong></p>
+	</div>`
+}
+
 func BookingAcceptedCounselorTemplate(counselorName, studentName, sessionType, startTime, endTime, location, meetLink string) string {
 	sessionLabel := "In-Person Session"
 	meetRow := ""

@@ -10,6 +10,7 @@ import (
 	"github.com/Nysonn/campuscare/internal/mail"
 	"github.com/Nysonn/campuscare/internal/middleware"
 	"github.com/Nysonn/campuscare/internal/services"
+	"github.com/Nysonn/campuscare/internal/stream"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -25,6 +26,7 @@ func main() {
 	}
 
 	mailer := mail.NewMailer()
+	streamClient := stream.NewClient(cfg.StreamAPIKey, cfg.StreamAPISecret)
 
 	authHandler := &handlers.AuthHandler{
 		DB:             database,
@@ -105,6 +107,36 @@ func main() {
 	auth.GET("/profile", authHandler.Profile)
 	auth.PATCH("/profile", authHandler.UpdateProfile)
 
+	// ── Sponsor routes (student-only) ────────────────────────────────────────
+	sponsorHandler := &handlers.SponsorHandler{
+		DB:     database,
+		Mailer: mailer,
+		Stream: streamClient,
+	}
+
+	studentSponsor := auth.Group("/")
+	studentSponsor.Use(middleware.RequireRole(database, "student"))
+
+	// Sponsor profile management
+	studentSponsor.POST("/sponsors/me", sponsorHandler.BecomeSponsor)
+	studentSponsor.DELETE("/sponsors/me", sponsorHandler.OptOut)
+	studentSponsor.GET("/sponsors/me/status", sponsorHandler.IsSponsor)
+
+	// Browse & request sponsors
+	studentSponsor.GET("/sponsors", sponsorHandler.ListSponsors)
+	studentSponsor.POST("/sponsors/:id/request", sponsorHandler.SendRequest)
+
+	// Request management (incoming for sponsors, outgoing for students)
+	studentSponsor.GET("/sponsors/incoming-requests", sponsorHandler.IncomingRequests)
+	studentSponsor.GET("/sponsors/my-requests", sponsorHandler.OutgoingRequests)
+	studentSponsor.PUT("/sponsor-requests/:id", sponsorHandler.RespondToRequest)
+	studentSponsor.DELETE("/sponsor-requests/:id", sponsorHandler.CancelRequest)
+
+	// Sponsorship & chat
+	studentSponsor.GET("/sponsorships/mine", sponsorHandler.MySponsorship)
+	studentSponsor.GET("/stream/token", sponsorHandler.GetStreamToken)
+
+	// ── Admin routes ──────────────────────────────────────────────────────────
 	admin := r.Group("/admin")
 	admin.Use(middleware.AuthRequired(sessionService))
 	admin.Use(middleware.RequireRole(database, "admin"))
@@ -122,6 +154,8 @@ func main() {
 
 	admin.GET("/contributions", adminHandler.ListContributions)
 	admin.GET("/contributions/export", adminHandler.ExportContributions)
+
+	admin.GET("/sponsors", sponsorHandler.AdminListSponsors)
 
 	r.Run(":" + cfg.AppPort)
 }

@@ -197,6 +197,12 @@ func (h *AuthHandler) Profile(c *gin.Context) {
 			userID,
 		).Scan(&firstName, &lastName, &displayName, &bio, &university, &course, &year, &location, &avatarURL, &isAnonymous)
 
+		var isSponsor bool
+		h.DB.QueryRow(context.Background(),
+			`SELECT COALESCE(is_active, false) FROM sponsor_profiles WHERE user_id=$1`,
+			userID,
+		).Scan(&isSponsor)
+
 		c.JSON(http.StatusOK, gin.H{
 			"id":           userID,
 			"email":        email,
@@ -211,6 +217,7 @@ func (h *AuthHandler) Profile(c *gin.Context) {
 			"location":     location,
 			"avatar_url":   avatarURL,
 			"is_anonymous": isAnonymous,
+			"is_sponsor":   isSponsor,
 		})
 
 	case "counselor":
@@ -267,6 +274,20 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 		if err := c.BindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 			return
+		}
+
+		// Sponsors cannot go anonymous — their visibility is required for the
+		// sponsorship feature to work correctly.
+		if body.IsAnonymous != nil && *body.IsAnonymous {
+			var isSponsor bool
+			h.DB.QueryRow(context.Background(),
+				`SELECT EXISTS(SELECT 1 FROM sponsor_profiles WHERE user_id=$1 AND is_active=true)`,
+				userID,
+			).Scan(&isSponsor)
+			if isSponsor {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Sponsors cannot use anonymous mode. Please opt out of being a sponsor first."})
+				return
+			}
 		}
 
 		_, err = h.DB.Exec(context.Background(),
