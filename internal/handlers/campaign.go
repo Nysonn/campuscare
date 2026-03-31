@@ -21,22 +21,22 @@ type AttachmentInput struct {
 }
 
 type CreateCampaignRequest struct {
-	Title                   string           `json:"title"`
-	Description             string           `json:"description"`
-	Target                  int64            `json:"target_amount"`
-	Category                string           `json:"category"`
+	Title                   string            `json:"title"`
+	Description             string            `json:"description"`
+	Target                  int64             `json:"target_amount"`
+	Category                string            `json:"category"`
 	Attachments             []AttachmentInput `json:"attachments"`
-	IsAnonymous             bool             `json:"is_anonymous"`
-	UrgencyLevel            string           `json:"urgency_level"`
-	BeneficiaryType         string           `json:"beneficiary_type"`
-	BeneficiaryName         string           `json:"beneficiary_name"`
-	VerificationContactName string           `json:"verification_contact_name"`
-	VerificationContactInfo string           `json:"verification_contact_info"`
+	IsAnonymous             bool              `json:"is_anonymous"`
+	UrgencyLevel            string            `json:"urgency_level"`
+	BeneficiaryType         string            `json:"beneficiary_type"`
+	BeneficiaryName         string            `json:"beneficiary_name"`
+	VerificationContactName string            `json:"verification_contact_name"`
+	VerificationContactInfo string            `json:"verification_contact_info"`
 	// Payment destination / account details
-	BeneficiaryOrgName  string `json:"beneficiary_org_name"`
-	BankName            string `json:"bank_name"`
-	AccountNumber       string `json:"account_number"`
-	AccountHolderName   string `json:"account_holder_name"`
+	BeneficiaryOrgName string `json:"beneficiary_org_name"`
+	BankName           string `json:"bank_name"`
+	AccountNumber      string `json:"account_number"`
+	AccountHolderName  string `json:"account_holder_name"`
 }
 
 func (h *CampaignHandler) Create(c *gin.Context) {
@@ -193,7 +193,7 @@ func (h *CampaignHandler) PublicList(c *gin.Context) {
 		        CASE WHEN sp.is_anonymous THEN '' ELSE sp.avatar_url END AS avatar_url
 		 FROM campaigns c
 		 JOIN student_profiles sp ON sp.user_id = c.student_id
-		 WHERE c.status IN ('approved', 'completed')
+		 WHERE c.status::text IN ('approved', 'completed')
 		   AND c.deleted_at IS NULL
 		 ORDER BY c.created_at DESC
 		 LIMIT 6`,
