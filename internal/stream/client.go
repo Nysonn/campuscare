@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -60,26 +61,28 @@ func (c *Client) serverToken() string {
 // UpsertUsers ensures Stream Chat has user records for the given IDs before
 // channel creation. names maps user_id → display name.
 func (c *Client) UpsertUsers(userIDs []string, names map[string]string) error {
-	usersMap := make(map[string]any, len(userIDs))
-	for _, id := range userIDs {
+	users := make([]map[string]any, len(userIDs))
+	for i, id := range userIDs {
 		entry := map[string]any{"id": id}
 		if name, ok := names[id]; ok && name != "" {
 			entry["name"] = name
 		}
-		usersMap[id] = entry
+		users[i] = entry
 	}
 
-	body, _ := json.Marshal(map[string]any{"users": usersMap})
+	body, _ := json.Marshal(map[string]any{"users": users})
 	return c.do("POST", "/users", body)
 }
 
 // CreateChannel creates a private messaging channel between two users.
 func (c *Client) CreateChannel(channelID, creatorID string, memberIDs []string) error {
+	members := make([]map[string]any, len(memberIDs))
+	for i, id := range memberIDs {
+		members[i] = map[string]any{"user_id": id}
+	}
 	body, _ := json.Marshal(map[string]any{
 		"created_by_id": creatorID,
-		"data": map[string]any{
-			"members": memberIDs,
-		},
+		"members":       members,
 	})
 	return c.do("POST", fmt.Sprintf("/channels/messaging/%s", channelID), body)
 }
@@ -113,7 +116,9 @@ func (c *Client) do(method, path string, body []byte) error {
 
 	if resp.StatusCode >= 400 {
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		return fmt.Errorf("stream API %s %s → %d: %s", method, path, resp.StatusCode, strings.TrimSpace(string(b)))
+		err := fmt.Errorf("stream API %s %s → %d: %s", method, path, resp.StatusCode, strings.TrimSpace(string(b)))
+		log.Println("[stream]", err)
+		return err
 	}
 	return nil
 }
