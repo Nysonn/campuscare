@@ -103,6 +103,7 @@ func main() {
 	auth.GET("/bookings/mine", middleware.RequireRole(database, "student"), bookingHandler.MyBookings)
 	auth.GET("/bookings/counselor", middleware.RequireRole(database, "counselor"), bookingHandler.CounselorBookings)
 	auth.GET("/counselors", middleware.RequireRole(database, "student"), bookingHandler.ListCounselors)
+	auth.GET("/counselors/:id", middleware.RequireRole(database, "student"), bookingHandler.GetCounselor)
 
 	auth.GET("/profile", authHandler.Profile)
 	auth.PATCH("/profile", authHandler.UpdateProfile)

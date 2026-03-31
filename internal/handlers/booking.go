@@ -325,6 +325,39 @@ func (h *BookingHandler) ListCounselors(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
+func (h *BookingHandler) GetCounselor(c *gin.Context) {
+	counselorID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid counselor ID"})
+		return
+	}
+
+	var id uuid.UUID
+	var fullName, specialization, bio string
+
+	err = h.DB.QueryRow(c,
+		`SELECT u.id, cp.full_name, cp.specialization, cp.bio
+		 FROM users u
+		 JOIN counselor_profiles cp ON cp.user_id = u.id
+		 WHERE u.id = $1
+		   AND u.role = 'counselor'
+		   AND u.deleted_at IS NULL`,
+		counselorID,
+	).Scan(&id, &fullName, &specialization, &bio)
+
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Counselor not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"id":             id,
+		"full_name":      fullName,
+		"specialization": specialization,
+		"bio":            bio,
+	})
+}
+
 func (h *BookingHandler) MyBookings(c *gin.Context) {
 
 	userID := c.MustGet("user_id").(uuid.UUID)
