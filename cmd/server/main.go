@@ -105,8 +105,8 @@ func main() {
 	auth.GET("/counselors", middleware.RequireRole(database, "student"), bookingHandler.ListCounselors)
 	auth.GET("/counselors/:id", middleware.RequireRole(database, "student"), bookingHandler.GetCounselor)
 
-	admin.GET("/campaigns/accounts", campaignHandler.ListPendingAccounts)
-	admin.PUT("/campaigns/:id/account", campaignHandler.VerifyAccount)
+	auth.GET("/admin/campaigns/accounts", middleware.RequireRole(database, "admin"), campaignHandler.ListPendingAccounts)
+	auth.PUT("/admin/campaigns/:id/account", middleware.RequireRole(database, "admin"), campaignHandler.VerifyAccount)
 
 	auth.GET("/profile", authHandler.Profile)
 	auth.PATCH("/profile", authHandler.UpdateProfile)
