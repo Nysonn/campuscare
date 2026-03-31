@@ -45,15 +45,15 @@ func (h *ContributionHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// Fetch campaign to check status, account_status, and funding progress.
-	var campaignStatus, accountStatus string
+	// Fetch campaign to check status and funding progress.
+	var campaignStatus string
 	var targetAmount, currentAmount int64
 	err := h.DB.QueryRow(context.Background(),
-		`SELECT status::text, account_status, target_amount, current_amount
+		`SELECT status::text, target_amount, current_amount
 		 FROM campaigns
 		 WHERE id = $1 AND deleted_at IS NULL`,
 		campaignID,
-	).Scan(&campaignStatus, &accountStatus, &targetAmount, &currentAmount)
+	).Scan(&campaignStatus, &targetAmount, &currentAmount)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Campaign not found"})
@@ -65,12 +65,7 @@ func (h *ContributionHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// Donations to campaigns with unverified accounts are held (pending).
-	// Donations to campaigns with verified accounts go through immediately (success).
-	contribStatus := "pending"
-	if accountStatus == "verified" {
-		contribStatus = "success"
-	}
+	contribStatus := "success"
 
 	var contributionID uuid.UUID
 	err = h.DB.QueryRow(context.Background(),
@@ -109,20 +104,13 @@ func (h *ContributionHandler) Create(c *gin.Context) {
 		)
 	}
 
-	// Send receipt email only for successful (non-held) contributions.
-	if contribStatus == "success" {
-		h.Mailer.SendAsync(
-			req.DonorEmail,
-			"CampusCare Donation Receipt",
-			mail.DonationReceiptTemplate(req.DonorName, req.Amount),
-		)
-	}
+	h.Mailer.SendAsync(
+		req.DonorEmail,
+		"CampusCare Donation Receipt",
+		mail.DonationReceiptTemplate(req.DonorName, req.Amount),
+	)
 
-	auditAction := "DONATION_SUCCESS"
-	if contribStatus == "pending" {
-		auditAction = "DONATION_HELD"
-	}
-	audit.Log(h.DB, uuid.Nil, auditAction, "contribution", contributionID, nil)
+	audit.Log(h.DB, uuid.Nil, "DONATION_SUCCESS", "contribution", contributionID, nil)
 
 	c.JSON(http.StatusCreated, gin.H{
 		"contribution_id": contributionID,
