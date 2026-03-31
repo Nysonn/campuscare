@@ -81,10 +81,12 @@ func (c *Client) CreateChannel(channelID, creatorID string, memberIDs []string) 
 		members[i] = map[string]any{"user_id": id}
 	}
 	body, _ := json.Marshal(map[string]any{
-		"created_by_id": creatorID,
-		"members":       members,
+		"data": map[string]any{
+			"created_by_id": creatorID,
+			"members":       members,
+		},
 	})
-	return c.do("POST", fmt.Sprintf("/channels/messaging/%s", channelID), body)
+	return c.do("POST", fmt.Sprintf("/channels/messaging/%s/query", channelID), body)
 }
 
 // DeleteChannel soft-deletes a Stream Chat channel when a sponsorship ends.
