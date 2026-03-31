@@ -186,6 +186,24 @@ func SponsorshipTerminatedTemplate(sponseeName, sponsorName string) string {
 	</div>`
 }
 
+// SponsorTerminatedBySponsoreeTemplate notifies the sponsor that their sponsee ended the sponsorship.
+func SponsorTerminatedBySponsoreeTemplate(sponsorName, sponseeName string) string {
+	return `
+	<div style="font-family: Arial, sans-serif; background:#fff5f5; padding:32px; max-width:560px; margin:auto;">
+		<h2 style="color:#c53030; margin-bottom:4px;">CampusCare — Sponsorship Ended</h2>
+		<p style="color:#4a5568;">Hi ` + sponsorName + `,</p>
+		<p style="color:#4a5568;">
+			<strong>` + sponseeName + `</strong> has decided to end your sponsorship connection.
+			This is a personal decision and is not a reflection of the support you provided.
+		</p>
+		<p style="color:#4a5568;">
+			You are still listed as an active sponsor and can connect with other students who need support.
+			Thank you for being part of the CampusCare community.
+		</p>
+		<p style="margin-top:24px; color:#c53030;">With gratitude,<br/><strong>The CampusCare Team</strong></p>
+	</div>`
+}
+
 func BookingAcceptedCounselorTemplate(counselorName, studentName, sessionType, startTime, endTime, location, meetLink string) string {
 	sessionLabel := "In-Person Session"
 	meetRow := ""

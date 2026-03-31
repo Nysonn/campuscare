@@ -589,6 +589,49 @@ func (h *SponsorHandler) MySponsorship(c *gin.Context) {
 	})
 }
 
+// TerminateSponsorship — DELETE /sponsorships/mine
+// Either party (sponsor or sponsee) can end the active sponsorship at any time.
+// Marks it as terminated, deletes the Stream channel, and notifies the other party.
+func (h *SponsorHandler) TerminateSponsorship(c *gin.Context) {
+	userID := c.MustGet("user_id").(uuid.UUID)
+
+	var sponsorshipID uuid.UUID
+	var channelID string
+	var sponsorID, sponseeID uuid.UUID
+
+	err := h.DB.QueryRow(c,
+		`SELECT id, stream_channel_id, sponsor_id, sponsee_id
+		 FROM sponsorships
+		 WHERE (sponsor_id = $1 OR sponsee_id = $1) AND terminated_at IS NULL`,
+		userID,
+	).Scan(&sponsorshipID, &channelID, &sponsorID, &sponseeID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "No active sponsorship found"})
+		return
+	}
+
+	if _, err := h.DB.Exec(c,
+		`UPDATE sponsorships SET terminated_at = now() WHERE id = $1`,
+		sponsorshipID,
+	); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to end sponsorship"})
+		return
+	}
+
+	go h.Stream.DeleteChannel(channelID)
+
+	// Notify the other party depending on who triggered the termination.
+	if userID == sponsorID {
+		// Sponsor ended it — notify the sponsee using the existing template.
+		go h.notifySponseeTerminated(sponseeID, sponsorID)
+	} else {
+		// Sponsee ended it — notify the sponsor with a dedicated message.
+		go h.notifySponsorTerminated(sponsorID, sponseeID)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Sponsorship ended"})
+}
+
 // GetStreamToken — GET /stream/token
 // Returns a short-lived Stream Chat JWT for the authenticated user.
 func (h *SponsorHandler) GetStreamToken(c *gin.Context) {
@@ -729,6 +772,26 @@ func (h *SponsorHandler) notifySponseeDeclined(sponseeID, sponsorID uuid.UUID) {
 		sponseeEmail,
 		"Update on your sponsor request",
 		mail.SponsorRequestDeclinedTemplate(sponseeName, sponsorName),
+	)
+}
+
+func (h *SponsorHandler) notifySponsorTerminated(sponsorID, sponseeID uuid.UUID) {
+	var sponsorEmail, sponsorName, sponseeName string
+	if err := h.DB.QueryRow(context.Background(),
+		`SELECT u.email, sp.display_name FROM users u
+		 JOIN student_profiles sp ON sp.user_id = u.id WHERE u.id=$1`,
+		sponsorID,
+	).Scan(&sponsorEmail, &sponsorName); err != nil {
+		return
+	}
+	h.DB.QueryRow(context.Background(),
+		`SELECT display_name FROM student_profiles WHERE user_id=$1`, sponseeID,
+	).Scan(&sponseeName)
+
+	h.Mailer.SendAsync(
+		sponsorEmail,
+		"A sponsorship has ended on CampusCare",
+		mail.SponsorTerminatedBySponsoreeTemplate(sponsorName, sponseeName),
 	)
 }
 

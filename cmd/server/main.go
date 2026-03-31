@@ -134,6 +134,7 @@ func main() {
 
 	// Sponsorship & chat
 	studentSponsor.GET("/sponsorships/mine", sponsorHandler.MySponsorship)
+	studentSponsor.DELETE("/sponsorships/mine", sponsorHandler.TerminateSponsorship)
 	studentSponsor.GET("/stream/token", sponsorHandler.GetStreamToken)
 
 	// ── Behaviour Tracking routes (student-only) ─────────────────────────────
