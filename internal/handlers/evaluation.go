@@ -1,9 +1,13 @@
 package handlers
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/Nysonn/campuscare/internal/chatbot"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -19,7 +23,8 @@ type evaluationQuestion struct {
 	Options []string `json:"options"` // index 0 = score 1 (worst), index 3 = score 4 (best)
 }
 
-var evaluationQuestions = []evaluationQuestion{
+// fallbackQuestions are used when Groq is unavailable.
+var fallbackQuestions = []evaluationQuestion{
 	{
 		ID:   1,
 		Text: "How would you rate your sleep quality over the past week?",
@@ -102,32 +107,131 @@ var evaluationQuestions = []evaluationQuestion{
 	},
 }
 
-// scoreToCategory maps a total score (8–32) to a category label and message.
-func scoreToCategory(score int) (string, string) {
+// scoreToCategory maps a total score (8–32) to a category label.
+func scoreToCategory(score int) string {
 	switch {
 	case score <= 13:
-		return "Needs Support",
-			"You may be going through a really difficult time right now. You are not alone — reaching out to a counselor or someone you trust is a brave and important step."
+		return "Needs Support"
 	case score <= 19:
-		return "Moderate Concern",
-			"You are facing some challenges and that is okay. Small acts of self-care and talking to someone can make a meaningful difference. You are doing better than you think."
+		return "Moderate Concern"
 	case score <= 25:
-		return "Doing Well",
-			"You are managing reasonably well. Keep nurturing your wellbeing through rest, connection, and balance. Do not hesitate to seek support if things get harder."
+		return "Doing Well"
 	default:
-		return "Thriving",
-			"You are in a great place! Your habits and mindset are working for you. Keep it up and continue showing up for yourself every day."
+		return "Thriving"
 	}
 }
 
+// generateQuestionsFromGroq asks Groq to produce 8 fresh evaluation questions.
+// Returns an error if Groq is unreachable or returns malformed JSON.
+func generateQuestionsFromGroq() ([]evaluationQuestion, error) {
+	prompt := `You are a mental health self-assessment tool for university students in Uganda. Generate exactly 8 unique mental health evaluation questions. Each question must have exactly 4 answer options ordered from worst to best:
+- index 0 = score 1 (worst state)
+- index 1 = score 2 (poor state)
+- index 2 = score 3 (okay state)
+- index 3 = score 4 (best state)
+
+Cover these 8 topics in any order, with fresh and varied wording each time: sleep quality, overall mood, academic stress, social connection, ability to focus, physical activity, anxiety levels, general wellbeing.
+
+Respond ONLY with valid JSON — no markdown, no code fences, no explanation. Exact structure required:
+{"questions":[{"id":1,"text":"...","options":["worst","poor","okay","best"]},{"id":2,"text":"...","options":["...","...","...","..."]},...,{"id":8,"text":"...","options":["...","...","...","..."]}]}`
+
+	messages := []map[string]string{
+		{"role": "user", "content": prompt},
+	}
+
+	raw, err := chatbot.CallGroq(messages)
+	if err != nil {
+		return nil, fmt.Errorf("groq call failed: %w", err)
+	}
+
+	// Strip markdown code fences that some models include despite instructions.
+	raw = strings.TrimSpace(raw)
+	if strings.HasPrefix(raw, "```") {
+		lines := strings.Split(raw, "\n")
+		if len(lines) > 2 {
+			raw = strings.Join(lines[1:len(lines)-1], "\n")
+		}
+	}
+
+	var result struct {
+		Questions []evaluationQuestion `json:"questions"`
+	}
+	if err := json.Unmarshal([]byte(raw), &result); err != nil {
+		return nil, fmt.Errorf("failed to parse Groq response as JSON: %w", err)
+	}
+	if len(result.Questions) != 8 {
+		return nil, fmt.Errorf("expected 8 questions, got %d", len(result.Questions))
+	}
+	for _, q := range result.Questions {
+		if len(q.Options) != 4 {
+			return nil, fmt.Errorf("question %d has %d options, expected 4", q.ID, len(q.Options))
+		}
+	}
+
+	return result.Questions, nil
+}
+
+// generatePersonalizedFeedback asks Groq to write a warm, personalised message
+// based on the student's actual scores. Falls back to a static message on error.
+func generatePersonalizedFeedback(score int, category string, answers map[string]int) string {
+	// Build a per-question score summary for context.
+	var sb strings.Builder
+	for i := 1; i <= 8; i++ {
+		key := fmt.Sprintf("%d", i)
+		if s, ok := answers[key]; ok {
+			sb.WriteString(fmt.Sprintf("  Question %d: %d/4\n", i, s))
+		}
+	}
+
+	prompt := fmt.Sprintf(`A university student in Uganda just completed a mental health self-evaluation.
+
+Results:
+- Total score: %d / 32
+- Category: %s
+- Per-question scores (1=worst, 4=best):
+%s
+Write a warm, empathetic, personalised 2–3 sentence message addressed directly to this student. Acknowledge their current state honestly but compassionately, highlight something specific from their scores, and offer one constructive encouragement. Do not give medical advice. Output only the message — no labels, no prefixes.`,
+		score, category, sb.String(),
+	)
+
+	messages := []map[string]string{
+		{"role": "user", "content": prompt},
+	}
+
+	feedback, err := chatbot.CallGroq(messages)
+	if err != nil {
+		// Static fallback per category.
+		switch category {
+		case "Needs Support":
+			return "You may be going through a really difficult time right now. You are not alone — reaching out to a counselor or someone you trust is a brave and important step."
+		case "Moderate Concern":
+			return "You are facing some challenges and that is okay. Small acts of self-care and talking to someone can make a meaningful difference. You are doing better than you think."
+		case "Doing Well":
+			return "You are managing reasonably well. Keep nurturing your wellbeing through rest, connection, and balance. Do not hesitate to seek support if things get harder."
+		default:
+			return "You are in a great place! Your habits and mindset are working for you. Keep it up and continue showing up for yourself every day."
+		}
+	}
+
+	return strings.TrimSpace(feedback)
+}
+
 // GetQuestions — GET /evaluations/questions
-// Returns the list of evaluation questions (static, same for every request).
+// Uses Groq to generate 8 fresh evaluation questions on every request.
+// Falls back to the static question set if Groq is unavailable.
 func (h *EvaluationHandler) GetQuestions(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"questions": evaluationQuestions})
+	questions, err := generateQuestionsFromGroq()
+	if err != nil {
+		// Graceful degradation — serve static questions.
+		c.JSON(http.StatusOK, gin.H{"questions": fallbackQuestions})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"questions": questions})
 }
 
 // SubmitEvaluation — POST /evaluations
-// Accepts answers (map of question ID → score 1–4), calculates result, and saves it.
+// Accepts answers (map of question ID → score 1–4), calculates the result,
+// generates a personalised AI feedback message, and saves the record.
 func (h *EvaluationHandler) SubmitEvaluation(c *gin.Context) {
 	userID := c.MustGet("user_id").(uuid.UUID)
 
@@ -138,8 +242,8 @@ func (h *EvaluationHandler) SubmitEvaluation(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
-	if len(req.Answers) != len(evaluationQuestions) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Please answer all questions before submitting"})
+	if len(req.Answers) != 8 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Please answer all 8 questions before submitting"})
 		return
 	}
 
@@ -152,7 +256,8 @@ func (h *EvaluationHandler) SubmitEvaluation(c *gin.Context) {
 		total += v
 	}
 
-	category, message := scoreToCategory(total)
+	category := scoreToCategory(total)
+	message := generatePersonalizedFeedback(total, category, req.Answers)
 
 	var evalID uuid.UUID
 	if err := h.DB.QueryRow(c,

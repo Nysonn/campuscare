@@ -50,8 +50,11 @@ func (s *Service) Ask(userID uuid.UUID, message string) (string, bool, error) {
 	}
 
 	// 3️⃣ Build messages
+	responseMode := DecideResponseMode(message)
+
 	messages := []map[string]string{
 		{"role": "system", "content": SystemPrompt},
+		{"role": "system", "content": BuildModeInstruction(responseMode)},
 	}
 
 	messages = append(messages, history...)
