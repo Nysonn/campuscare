@@ -61,13 +61,13 @@ func (c *Client) serverToken() string {
 // UpsertUsers ensures Stream Chat has user records for the given IDs before
 // channel creation. names maps user_id → display name.
 func (c *Client) UpsertUsers(userIDs []string, names map[string]string) error {
-	users := make([]map[string]any, len(userIDs))
-	for i, id := range userIDs {
+	users := make(map[string]map[string]any, len(userIDs))
+	for _, id := range userIDs {
 		entry := map[string]any{"id": id}
 		if name, ok := names[id]; ok && name != "" {
 			entry["name"] = name
 		}
-		users[i] = entry
+		users[id] = entry
 	}
 
 	body, _ := json.Marshal(map[string]any{"users": users})
