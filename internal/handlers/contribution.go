@@ -45,12 +45,39 @@ func (h *ContributionHandler) Create(c *gin.Context) {
 		return
 	}
 
-	var contributionID uuid.UUID
+	// Fetch campaign to check status, account_status, and funding progress.
+	var campaignStatus, accountStatus string
+	var targetAmount, currentAmount int64
 	err := h.DB.QueryRow(context.Background(),
+		`SELECT status::text, account_status, target_amount, current_amount
+		 FROM campaigns
+		 WHERE id = $1 AND deleted_at IS NULL`,
+		campaignID,
+	).Scan(&campaignStatus, &accountStatus, &targetAmount, &currentAmount)
+
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Campaign not found"})
+		return
+	}
+
+	if campaignStatus == "completed" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "This campaign has reached its funding goal and is no longer accepting donations"})
+		return
+	}
+
+	// Donations to campaigns with unverified accounts are held (pending).
+	// Donations to campaigns with verified accounts go through immediately (success).
+	contribStatus := "pending"
+	if accountStatus == "verified" {
+		contribStatus = "success"
+	}
+
+	var contributionID uuid.UUID
+	err = h.DB.QueryRow(context.Background(),
 		`INSERT INTO contributions
 		 (campaign_id, donor_name, donor_email, donor_phone,
 		  message, is_anonymous, payment_method, amount, status)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'success')
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
 		 RETURNING id`,
 		campaignID,
 		req.DonorName,
@@ -60,6 +87,7 @@ func (h *ContributionHandler) Create(c *gin.Context) {
 		req.IsAnonymous,
 		req.PaymentMethod,
 		req.Amount,
+		contribStatus,
 	).Scan(&contributionID)
 
 	if err != nil {
@@ -67,26 +95,38 @@ func (h *ContributionHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// Increment campaign amount
+	// Increment campaign current_amount (funds count toward progress regardless of hold status).
 	h.DB.Exec(context.Background(),
-		`UPDATE campaigns
-		 SET current_amount = current_amount + $1
-		 WHERE id=$2`,
+		`UPDATE campaigns SET current_amount = current_amount + $1 WHERE id=$2`,
 		req.Amount, campaignID,
 	)
 
-	// Send receipt email in background to avoid blocking the response
-	h.Mailer.SendAsync(
-		req.DonorEmail,
-		"CampusCare Donation Receipt",
-		mail.DonationReceiptTemplate(req.DonorName, req.Amount),
-	)
+	// Auto-complete the campaign if it has now reached or exceeded its target.
+	if currentAmount+req.Amount >= targetAmount {
+		h.DB.Exec(context.Background(),
+			`UPDATE campaigns SET status='completed' WHERE id=$1 AND status='approved'`,
+			campaignID,
+		)
+	}
 
-	audit.Log(h.DB, uuid.Nil, "DONATION_SUCCESS", "contribution", contributionID, nil)
+	// Send receipt email only for successful (non-held) contributions.
+	if contribStatus == "success" {
+		h.Mailer.SendAsync(
+			req.DonorEmail,
+			"CampusCare Donation Receipt",
+			mail.DonationReceiptTemplate(req.DonorName, req.Amount),
+		)
+	}
+
+	auditAction := "DONATION_SUCCESS"
+	if contribStatus == "pending" {
+		auditAction = "DONATION_HELD"
+	}
+	audit.Log(h.DB, uuid.Nil, auditAction, "contribution", contributionID, nil)
 
 	c.JSON(http.StatusCreated, gin.H{
 		"contribution_id": contributionID,
-		"status":          "success",
+		"status":          contribStatus,
 	})
 }
 
