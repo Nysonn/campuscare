@@ -82,6 +82,7 @@ func main() {
 	}
 
 	r.POST("/contributions", contributionHandler.Create)
+	r.POST("/donate/general", contributionHandler.DonateGeneralPool)
 
 	chatbotHandler := &chatbot.ChatbotHandler{
 		Service: &chatbot.Service{DB: database},
@@ -184,6 +185,7 @@ func main() {
 	admin.GET("/contributions/export", adminHandler.ExportContributions)
 
 	admin.GET("/sponsors", sponsorHandler.AdminListSponsors)
+	admin.GET("/general-pool", adminHandler.ListGeneralPoolDonations)
 
 	r.Run(":" + cfg.AppPort)
 }

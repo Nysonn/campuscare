@@ -118,6 +118,53 @@ func (h *ContributionHandler) Create(c *gin.Context) {
 	})
 }
 
+// DonateGeneralPool — POST /donate/general (public, no auth)
+func (h *ContributionHandler) DonateGeneralPool(c *gin.Context) {
+	var req struct {
+		DonorName     string `json:"donor_name"`
+		DonorEmail    string `json:"donor_email"`
+		DonorPhone    string `json:"donor_phone"`
+		Amount        int64  `json:"amount"`
+		Message       string `json:"message"`
+		PaymentMethod string `json:"payment_method"`
+		IsAnonymous   bool   `json:"is_anonymous"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+	if req.DonorName == "" || req.DonorEmail == "" || req.Amount <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Name, email and amount are required"})
+		return
+	}
+	validPaymentMethods := map[string]bool{"mtn_momo": true, "airtel_money": true, "visa": true}
+	if !validPaymentMethods[req.PaymentMethod] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "payment_method must be one of: mtn_momo, airtel_money, visa"})
+		return
+	}
+
+	var id uuid.UUID
+	err := h.DB.QueryRow(context.Background(),
+		`INSERT INTO general_pool_donations
+		 (donor_name, donor_email, donor_phone, amount, message, payment_method, is_anonymous)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+		req.DonorName, req.DonorEmail, req.DonorPhone,
+		req.Amount, req.Message, req.PaymentMethod, req.IsAnonymous,
+	).Scan(&id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Donation failed"})
+		return
+	}
+
+	h.Mailer.SendAsync(
+		req.DonorEmail,
+		"CampusCare General Pool Donation Receipt",
+		mail.DonationReceiptTemplate(req.DonorName, req.Amount),
+	)
+
+	c.JSON(http.StatusCreated, gin.H{"donation_id": id, "status": "success"})
+}
+
 func (h *AdminHandler) ExportContributions(c *gin.Context) {
 
 	rows, _ := h.DB.Query(context.Background(),

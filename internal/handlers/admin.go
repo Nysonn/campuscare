@@ -237,3 +237,40 @@ func (h *AdminHandler) ListContributions(c *gin.Context) {
 
 	c.JSON(200, list)
 }
+
+// ListGeneralPoolDonations — GET /admin/general-pool
+func (h *AdminHandler) ListGeneralPoolDonations(c *gin.Context) {
+	rows, err := h.DB.Query(c,
+		`SELECT id, donor_name, donor_email, amount, payment_method, is_anonymous, status, created_at
+		 FROM general_pool_donations
+		 ORDER BY created_at DESC`,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed"})
+		return
+	}
+	defer rows.Close()
+
+	type Donation struct {
+		ID            uuid.UUID `json:"id"`
+		DonorName     string    `json:"donor_name"`
+		DonorEmail    string    `json:"donor_email"`
+		Amount        int64     `json:"amount"`
+		PaymentMethod string    `json:"payment_method"`
+		IsAnonymous   bool      `json:"is_anonymous"`
+		Status        string    `json:"status"`
+		CreatedAt     time.Time `json:"created_at"`
+	}
+
+	var donations []Donation
+	for rows.Next() {
+		var d Donation
+		rows.Scan(&d.ID, &d.DonorName, &d.DonorEmail, &d.Amount, &d.PaymentMethod, &d.IsAnonymous, &d.Status, &d.CreatedAt)
+		donations = append(donations, d)
+	}
+	if donations == nil {
+		donations = []Donation{}
+	}
+
+	c.JSON(200, donations)
+}
