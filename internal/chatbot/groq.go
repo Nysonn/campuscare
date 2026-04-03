@@ -8,11 +8,16 @@ import (
 	"os"
 )
 
-func CallGroq(messages []map[string]string) (string, error) {
+func CallGroq(messages []map[string]string, temperature ...float64) (string, error) {
+	temp := 0.7
+	if len(temperature) > 0 {
+		temp = temperature[0]
+	}
 
 	body := map[string]interface{}{
-		"model":    "llama-3.3-70b-versatile",
-		"messages": messages,
+		"model":       "llama-3.3-70b-versatile",
+		"messages":    messages,
+		"temperature": temp,
 	}
 
 	b, _ := json.Marshal(body)

@@ -139,7 +139,7 @@ Respond ONLY with valid JSON — no markdown, no code fences, no explanation. Ex
 		{"role": "user", "content": prompt},
 	}
 
-	raw, err := chatbot.CallGroq(messages)
+	raw, err := chatbot.CallGroq(messages, 1.0)
 	if err != nil {
 		return nil, fmt.Errorf("groq call failed: %w", err)
 	}
