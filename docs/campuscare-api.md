@@ -25,6 +25,7 @@ All request and response bodies use `application/json` unless noted otherwise.
    - [Simulate Payment](#simulate-payment)
 4. [Bookings](#bookings)
    - [List Counselors](#list-counselors)
+   - [Get Counselor](#get-counselor)
    - [Create Booking](#create-booking)
    - [Update Booking Status](#update-booking-status)
    - [My Bookings (Student)](#my-bookings-student)
@@ -197,7 +198,8 @@ Returns the full profile of the currently logged-in user. Use this on app load t
   "full_name": "Dr. Dev Kapoor",
   "specialization": "",
   "bio": "",
-  "phone": ""
+  "phone": "",
+  "avatar_url": ""
 }
 ```
 
@@ -246,6 +248,7 @@ Update the currently logged-in user's profile. All fields are **optional** — o
 | `specialization` | string | ❌ | Area of expertise |
 | `bio` | string | ❌ | Professional bio |
 | `phone` | string | ❌ | Contact phone number |
+| `avatar_url` | string | ❌ | URL to profile photo |
 
 **Response `200 OK`**
 
@@ -494,10 +497,35 @@ Fetch all available counselors to display in the booking flow. Requires a studen
     "id": "7076f52b-89db-4922-9d12-bf8350c27d83",
     "full_name": "Dr. Dev Kapoor",
     "specialization": "Anxiety & Depression",
-    "bio": "Experienced counselor with 10+ years supporting university students."
+    "bio": "Experienced counselor with 10+ years supporting university students.",
+    "avatar_url": "https://res.cloudinary.com/campuscare/counselor_avatar.jpg"
   }
 ]
 ```
+
+> `avatar_url` is an empty string `""` when the counselor has not uploaded a photo. Show a placeholder avatar in the UI in that case.
+
+---
+
+### Get Counselor
+
+Fetch the full profile of a single counselor by ID. Requires a student session.
+
+**`GET /counselors/:counselor_id`** — Requires student session
+
+**Response `200 OK`**
+
+```json
+{
+  "id": "7076f52b-89db-4922-9d12-bf8350c27d83",
+  "full_name": "Dr. Dev Kapoor",
+  "specialization": "Anxiety & Depression",
+  "bio": "Experienced counselor with 10+ years supporting university students.",
+  "avatar_url": "https://res.cloudinary.com/campuscare/counselor_avatar.jpg"
+}
+```
+
+> `avatar_url` is an empty string `""` when the counselor has not uploaded a photo.
 
 ---
 

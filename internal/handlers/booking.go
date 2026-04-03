@@ -289,7 +289,7 @@ func (h *BookingHandler) createCalendarEvent(bookingID uuid.UUID) (string, error
 func (h *BookingHandler) ListCounselors(c *gin.Context) {
 
 	rows, err := h.DB.Query(c,
-		`SELECT u.id, cp.full_name, cp.specialization, cp.bio
+		`SELECT u.id, cp.full_name, cp.specialization, cp.bio, cp.avatar_url
 		 FROM users u
 		 JOIN counselor_profiles cp ON cp.user_id = u.id
 		 WHERE u.role = 'counselor'
@@ -306,15 +306,16 @@ func (h *BookingHandler) ListCounselors(c *gin.Context) {
 
 	for rows.Next() {
 		var id uuid.UUID
-		var fullName, specialization, bio string
+		var fullName, specialization, bio, avatarURL string
 
-		rows.Scan(&id, &fullName, &specialization, &bio)
+		rows.Scan(&id, &fullName, &specialization, &bio, &avatarURL)
 
 		list = append(list, gin.H{
 			"id":             id,
 			"full_name":      fullName,
 			"specialization": specialization,
 			"bio":            bio,
+			"avatar_url":     avatarURL,
 		})
 	}
 
@@ -333,17 +334,17 @@ func (h *BookingHandler) GetCounselor(c *gin.Context) {
 	}
 
 	var id uuid.UUID
-	var fullName, specialization, bio string
+	var fullName, specialization, bio, avatarURL string
 
 	err = h.DB.QueryRow(c,
-		`SELECT u.id, cp.full_name, cp.specialization, cp.bio
+		`SELECT u.id, cp.full_name, cp.specialization, cp.bio, cp.avatar_url
 		 FROM users u
 		 JOIN counselor_profiles cp ON cp.user_id = u.id
 		 WHERE u.id = $1
 		   AND u.role = 'counselor'
 		   AND u.deleted_at IS NULL`,
 		counselorID,
-	).Scan(&id, &fullName, &specialization, &bio)
+	).Scan(&id, &fullName, &specialization, &bio, &avatarURL)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Counselor not found"})
@@ -355,6 +356,7 @@ func (h *BookingHandler) GetCounselor(c *gin.Context) {
 		"full_name":      fullName,
 		"specialization": specialization,
 		"bio":            bio,
+		"avatar_url":     avatarURL,
 	})
 }
 

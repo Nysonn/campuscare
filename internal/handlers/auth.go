@@ -221,11 +221,11 @@ func (h *AuthHandler) Profile(c *gin.Context) {
 		})
 
 	case "counselor":
-		var fullName, specialization, bio, phone string
+		var fullName, specialization, bio, phone, avatarURL string
 		h.DB.QueryRow(context.Background(),
-			`SELECT full_name, specialization, bio, phone FROM counselor_profiles WHERE user_id=$1`,
+			`SELECT full_name, specialization, bio, phone, avatar_url FROM counselor_profiles WHERE user_id=$1`,
 			userID,
-		).Scan(&fullName, &specialization, &bio, &phone)
+		).Scan(&fullName, &specialization, &bio, &phone, &avatarURL)
 
 		c.JSON(http.StatusOK, gin.H{
 			"id":             userID,
@@ -235,6 +235,7 @@ func (h *AuthHandler) Profile(c *gin.Context) {
 			"specialization": specialization,
 			"bio":            bio,
 			"phone":          phone,
+			"avatar_url":     avatarURL,
 		})
 
 	default:
@@ -316,6 +317,7 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 			Specialization *string `json:"specialization"`
 			Bio            *string `json:"bio"`
 			Phone          *string `json:"phone"`
+			AvatarURL      *string `json:"avatar_url"`
 		}
 		if err := c.BindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
@@ -328,9 +330,10 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 			     specialization  = COALESCE($2, specialization),
 			     bio             = COALESCE($3, bio),
 			     phone           = COALESCE($4, phone),
+			     avatar_url      = COALESCE($5, avatar_url),
 			     updated_at      = now()
-			 WHERE user_id = $5`,
-			body.FullName, body.Specialization, body.Bio, body.Phone, userID,
+			 WHERE user_id = $6`,
+			body.FullName, body.Specialization, body.Bio, body.Phone, body.AvatarURL, userID,
 		)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Update failed"})
