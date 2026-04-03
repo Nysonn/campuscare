@@ -75,6 +75,7 @@ func main() {
 	auth.GET("/admin/campaigns", middleware.RequireRole(database, "admin"), campaignHandler.ListPending)
 
 	r.GET("/campaigns", campaignHandler.PublicList)
+	r.GET("/campaigns/:id", campaignHandler.PublicGet)
 
 	contributionHandler := &handlers.ContributionHandler{
 		DB:     database,

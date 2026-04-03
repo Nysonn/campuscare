@@ -186,6 +186,65 @@ func (h *CampaignHandler) Delete(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Campaign deleted"})
 }
 
+func (h *CampaignHandler) PublicGet(c *gin.Context) {
+	idParam := c.Param("id")
+	campaignID, err := uuid.Parse(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid campaign ID"})
+		return
+	}
+
+	var id uuid.UUID
+	var title, desc, author, avatarURL, status, accountStatus, category string
+	var bankName, accountNumber, accountHolderName string
+	var target, current int64
+	var createdAt time.Time
+	var isAnonymous bool
+
+	err = h.DB.QueryRow(context.Background(),
+		`SELECT c.id, c.title, c.description, c.target_amount, c.current_amount, c.created_at,
+		        c.status::text, c.account_status, COALESCE(c.category, '') AS category,
+		        COALESCE(c.bank_name, '') AS bank_name,
+		        COALESCE(c.account_number, '') AS account_number,
+		        COALESCE(c.account_holder_name, '') AS account_holder_name,
+		        sp.is_anonymous,
+		        CASE WHEN sp.is_anonymous THEN '' ELSE sp.display_name END AS author,
+		        CASE WHEN sp.is_anonymous THEN '' ELSE sp.avatar_url END AS avatar_url
+		 FROM campaigns c
+		 JOIN student_profiles sp ON sp.user_id = c.student_id
+		 WHERE c.id = $1
+		   AND c.status::text IN ('approved', 'completed')
+		   AND c.deleted_at IS NULL`,
+		campaignID,
+	).Scan(&id, &title, &desc, &target, &current, &createdAt,
+		&status, &accountStatus, &category,
+		&bankName, &accountNumber, &accountHolderName,
+		&isAnonymous, &author, &avatarURL)
+
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Campaign not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"id":                  id,
+		"title":               title,
+		"description":         desc,
+		"target_amount":       target,
+		"current_amount":      current,
+		"created_at":          createdAt,
+		"status":              status,
+		"account_status":      accountStatus,
+		"category":            category,
+		"bank_name":           bankName,
+		"account_number":      accountNumber,
+		"account_holder_name": accountHolderName,
+		"is_anonymous":        isAnonymous,
+		"author":              author,
+		"avatar_url":          avatarURL,
+	})
+}
+
 func (h *CampaignHandler) PublicList(c *gin.Context) {
 
 	rows, err := h.DB.Query(context.Background(),

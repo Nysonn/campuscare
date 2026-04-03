@@ -8,7 +8,7 @@ run:
 	go run cmd/server/main.go
 
 migrate-up:
-	docker compose run --rm migrate migrate -path /app/migrations -database "$${DATABASE_URL}" up
+	docker compose run --rm migrate migrate -path /app/migrations -database "postgresql://neondb_owner:npg_2PIXQnyYwr1g@ep-wispy-butterfly-ae4z8a1x-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require" up
 
 migrate-down:
 	docker compose run --rm migrate migrate -path /app/migrations -database "$${DATABASE_URL}" down
