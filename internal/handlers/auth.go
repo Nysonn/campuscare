@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 
@@ -336,6 +337,7 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 			body.FullName, body.Specialization, body.Bio, body.Phone, body.AvatarURL, userID,
 		)
 		if err != nil {
+			log.Printf("[UpdateProfile] counselor DB error: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Update failed"})
 			return
 		}
