@@ -35,6 +35,11 @@ type RegisterRequest struct {
 	Role     string `json:"role"`
 	Consent  bool   `json:"consent"`
 	FullName string `json:"full_name"`
+	// Counsellor-only fields
+	Location           string `json:"location"`
+	Age                *int   `json:"age"`
+	YearsOfExperience  string `json:"years_of_experience"`
+	LicenceURL         string `json:"licence_url"`
 }
 
 func (h *AuthHandler) Register(c *gin.Context) {
@@ -87,11 +92,13 @@ func (h *AuthHandler) Register(c *gin.Context) {
 			userID, parts[0], parts[1], req.FullName,
 		)
 	case "counselor":
+		age := req.Age // may be nil
 		_, err = tx.Exec(context.Background(),
 			`INSERT INTO counselor_profiles
-			 (user_id,full_name,specialization,bio,phone)
-			 VALUES ($1,$2,'','','')`,
+			 (user_id,full_name,specialization,bio,phone,location,age,years_of_experience,licence_url,verification_status)
+			 VALUES ($1,$2,'','','',$3,$4,$5,$6,'pending')`,
 			userID, req.FullName,
+			req.Location, age, req.YearsOfExperience, req.LicenceURL,
 		)
 	default:
 		// No profile needed for other roles
@@ -128,15 +135,32 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	var id uuid.UUID
 	var hash string
+	var role string
 
 	err := h.DB.QueryRow(context.Background(),
-		`SELECT id,password_hash FROM users WHERE lower(email)=lower($1)`,
+		`SELECT id,password_hash,role::text FROM users WHERE lower(email)=lower($1)`,
 		req.Email,
-	).Scan(&id, &hash)
+	).Scan(&id, &hash, &role)
 
 	if err != nil || services.CheckPassword(hash, req.Password) != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
+	}
+
+	// Block counsellors who have not yet been approved by an admin.
+	if role == "counselor" {
+		var verificationStatus string
+		h.DB.QueryRow(context.Background(),
+			`SELECT verification_status FROM counselor_profiles WHERE user_id=$1`,
+			id,
+		).Scan(&verificationStatus)
+
+		if verificationStatus != "approved" {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "Your account is pending admin verification. You will receive an email once approved.",
+			})
+			return
+		}
 	}
 
 	sessionID, err := h.SessionService.Create(id)
@@ -223,20 +247,32 @@ func (h *AuthHandler) Profile(c *gin.Context) {
 
 	case "counselor":
 		var fullName, specialization, bio, phone, avatarURL string
+		var location, yearsOfExperience, licenceURL, verificationStatus string
+		var age *int
 		h.DB.QueryRow(context.Background(),
-			`SELECT full_name, specialization, bio, phone, avatar_url FROM counselor_profiles WHERE user_id=$1`,
+			`SELECT full_name, specialization, bio, phone, avatar_url,
+			        COALESCE(location,''), age,
+			        COALESCE(years_of_experience,''), COALESCE(licence_url,''),
+			        COALESCE(verification_status,'pending')
+			 FROM counselor_profiles WHERE user_id=$1`,
 			userID,
-		).Scan(&fullName, &specialization, &bio, &phone, &avatarURL)
+		).Scan(&fullName, &specialization, &bio, &phone, &avatarURL,
+			&location, &age, &yearsOfExperience, &licenceURL, &verificationStatus)
 
 		c.JSON(http.StatusOK, gin.H{
-			"id":             userID,
-			"email":          email,
-			"role":           role,
-			"full_name":      fullName,
-			"specialization": specialization,
-			"bio":            bio,
-			"phone":          phone,
-			"avatar_url":     avatarURL,
+			"id":                  userID,
+			"email":               email,
+			"role":                role,
+			"full_name":           fullName,
+			"specialization":      specialization,
+			"bio":                 bio,
+			"phone":               phone,
+			"avatar_url":          avatarURL,
+			"location":            location,
+			"age":                 age,
+			"years_of_experience": yearsOfExperience,
+			"licence_url":         licenceURL,
+			"verification_status": verificationStatus,
 		})
 
 	default:
@@ -314,11 +350,13 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 
 	case "counselor":
 		var body struct {
-			FullName       *string `json:"full_name"`
-			Specialization *string `json:"specialization"`
-			Bio            *string `json:"bio"`
-			Phone          *string `json:"phone"`
-			AvatarURL      *string `json:"avatar_url"`
+			FullName          *string `json:"full_name"`
+			Specialization    *string `json:"specialization"`
+			Bio               *string `json:"bio"`
+			Phone             *string `json:"phone"`
+			AvatarURL         *string `json:"avatar_url"`
+			Location          *string `json:"location"`
+			YearsOfExperience *string `json:"years_of_experience"`
 		}
 		if err := c.BindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
@@ -327,14 +365,17 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 
 		_, err = h.DB.Exec(context.Background(),
 			`UPDATE counselor_profiles
-			 SET full_name       = COALESCE($1, full_name),
-			     specialization  = COALESCE($2, specialization),
-			     bio             = COALESCE($3, bio),
-			     phone           = COALESCE($4, phone),
-			     avatar_url      = COALESCE($5, avatar_url),
-			     updated_at      = now()
-			 WHERE user_id = $6`,
-			body.FullName, body.Specialization, body.Bio, body.Phone, body.AvatarURL, userID,
+			 SET full_name           = COALESCE($1, full_name),
+			     specialization      = COALESCE($2, specialization),
+			     bio                 = COALESCE($3, bio),
+			     phone               = COALESCE($4, phone),
+			     avatar_url          = COALESCE($5, avatar_url),
+			     location            = COALESCE($6, location),
+			     years_of_experience = COALESCE($7, years_of_experience),
+			     updated_at          = now()
+			 WHERE user_id = $8`,
+			body.FullName, body.Specialization, body.Bio, body.Phone, body.AvatarURL,
+			body.Location, body.YearsOfExperience, userID,
 		)
 		if err != nil {
 			log.Printf("[UpdateProfile] counselor DB error: %v", err)

@@ -171,7 +171,7 @@ func main() {
 	admin.Use(middleware.AuthRequired(sessionService))
 	admin.Use(middleware.RequireRole(database, "admin"))
 
-	adminHandler := &handlers.AdminHandler{DB: database}
+	adminHandler := &handlers.AdminHandler{DB: database, Mailer: mailer}
 
 	admin.GET("/dashboard", adminHandler.Dashboard)
 
@@ -187,6 +187,9 @@ func main() {
 
 	admin.GET("/sponsors", sponsorHandler.AdminListSponsors)
 	admin.GET("/general-pool", adminHandler.ListGeneralPoolDonations)
+
+	admin.GET("/counselors", adminHandler.ListPendingCounselors)
+	admin.PUT("/counselors/:id/verify", adminHandler.ApproveCounselor)
 
 	r.Run(":" + cfg.AppPort)
 }

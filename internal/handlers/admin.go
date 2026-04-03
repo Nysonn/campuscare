@@ -1,17 +1,20 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/Nysonn/campuscare/internal/mail"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type AdminHandler struct {
-	DB *pgxpool.Pool
+	DB     *pgxpool.Pool
+	Mailer *mail.Mailer
 }
 
 func (h *AdminHandler) Dashboard(c *gin.Context) {
@@ -236,6 +239,120 @@ func (h *AdminHandler) ListContributions(c *gin.Context) {
 	}
 
 	c.JSON(200, list)
+}
+
+// ListPendingCounselors — GET /admin/counselors?status=pending|approved|rejected|all
+func (h *AdminHandler) ListPendingCounselors(c *gin.Context) {
+	statusFilter := c.DefaultQuery("status", "pending")
+
+	rows, err := h.DB.Query(context.Background(),
+		`SELECT u.id, u.email, u.created_at,
+		        cp.full_name, cp.specialization, cp.bio, cp.phone,
+		        COALESCE(cp.avatar_url,''), COALESCE(cp.location,''),
+		        cp.age, COALESCE(cp.years_of_experience,''),
+		        COALESCE(cp.licence_url,''), cp.verification_status
+		 FROM users u
+		 JOIN counselor_profiles cp ON cp.user_id = u.id
+		 WHERE u.role = 'counselor'
+		   AND u.deleted_at IS NULL
+		   AND ($1 = 'all' OR cp.verification_status = $1)
+		 ORDER BY u.created_at DESC`,
+		statusFilter,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch counselors"})
+		return
+	}
+	defer rows.Close()
+
+	var list []gin.H
+	for rows.Next() {
+		var id uuid.UUID
+		var email, fullName, specialization, bio, phone string
+		var avatarURL, location, yearsOfExperience, licenceURL, verificationStatus string
+		var age *int
+		var createdAt time.Time
+
+		rows.Scan(&id, &email, &createdAt,
+			&fullName, &specialization, &bio, &phone,
+			&avatarURL, &location, &age, &yearsOfExperience,
+			&licenceURL, &verificationStatus)
+
+		list = append(list, gin.H{
+			"id":                  id,
+			"email":               email,
+			"full_name":           fullName,
+			"specialization":      specialization,
+			"bio":                 bio,
+			"phone":               phone,
+			"avatar_url":          avatarURL,
+			"location":            location,
+			"age":                 age,
+			"years_of_experience": yearsOfExperience,
+			"licence_url":         licenceURL,
+			"verification_status": verificationStatus,
+			"created_at":          createdAt,
+		})
+	}
+
+	if list == nil {
+		list = []gin.H{}
+	}
+
+	c.JSON(http.StatusOK, list)
+}
+
+// ApproveCounselor — PUT /admin/counselors/:id/verify
+func (h *AdminHandler) ApproveCounselor(c *gin.Context) {
+	counselorID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid counselor ID"})
+		return
+	}
+
+	var body struct {
+		Status string `json:"status"` // "approved" or "rejected"
+	}
+	if err := c.BindJSON(&body); err != nil || (body.Status != "approved" && body.Status != "rejected") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "status must be 'approved' or 'rejected'"})
+		return
+	}
+
+	_, err = h.DB.Exec(context.Background(),
+		`UPDATE counselor_profiles SET verification_status=$1 WHERE user_id=$2`,
+		body.Status, counselorID,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Update failed"})
+		return
+	}
+
+	// Send approval email only — no email on rejection per spec.
+	if body.Status == "approved" {
+		go h.notifyCounselorApproved(counselorID)
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Counselor verification status updated"})
+}
+
+func (h *AdminHandler) notifyCounselorApproved(counselorID uuid.UUID) {
+	var email, fullName string
+	err := h.DB.QueryRow(context.Background(),
+		`SELECT u.email, cp.full_name
+		 FROM users u
+		 JOIN counselor_profiles cp ON cp.user_id = u.id
+		 WHERE u.id = $1`,
+		counselorID,
+	).Scan(&email, &fullName)
+	if err != nil {
+		return
+	}
+
+	h.Mailer.SendAsync(
+		email,
+		"Your CampusCare account has been approved!",
+		mail.CounselorApprovedTemplate(fullName),
+	)
 }
 
 // ListGeneralPoolDonations — GET /admin/general-pool

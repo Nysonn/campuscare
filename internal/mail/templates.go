@@ -253,6 +253,26 @@ func CampaignApprovedTemplate(studentName, campaignTitle string) string {
 	</div>`
 }
 
+func CounselorApprovedTemplate(fullName string) string {
+	return `
+	<div style="font-family: Arial, sans-serif; background:#f0fff4; padding:32px; max-width:560px; margin:auto;">
+		<h2 style="color:#2f855a; margin-bottom:4px;">CampusCare — You're Approved!</h2>
+		<p style="color:#4a5568;">Hi ` + fullName + `,</p>
+		<p style="color:#4a5568;">
+			Great news! Your CampusCare counsellor account has been <strong>verified and approved</strong>
+			by our admin team.
+		</p>
+		<p style="color:#4a5568;">
+			You can now log in to your dashboard to manage appointment requests, conduct online and
+			physical sessions, and start supporting students who need you.
+		</p>
+		<p style="color:#4a5568; font-style:italic;">
+			Thank you for joining CampusCare. Your expertise makes a real difference in student lives.
+		</p>
+		<p style="margin-top:24px; color:#2f855a;">Welcome aboard,<br/><strong>The CampusCare Team</strong></p>
+	</div>`
+}
+
 func NewSponsorTemplate(sponsorName string) string {
 	return `
 	<div style="font-family: Arial, sans-serif; background:#f0fff4; padding:32px; max-width:560px; margin:auto;">

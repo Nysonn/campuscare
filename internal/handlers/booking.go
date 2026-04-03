@@ -289,11 +289,13 @@ func (h *BookingHandler) createCalendarEvent(bookingID uuid.UUID) (string, error
 func (h *BookingHandler) ListCounselors(c *gin.Context) {
 
 	rows, err := h.DB.Query(c,
-		`SELECT u.id, cp.full_name, cp.specialization, cp.bio, cp.avatar_url
+		`SELECT u.id, cp.full_name, cp.specialization, cp.bio, cp.avatar_url,
+		        COALESCE(cp.location,''), cp.age, COALESCE(cp.years_of_experience,'')
 		 FROM users u
 		 JOIN counselor_profiles cp ON cp.user_id = u.id
 		 WHERE u.role = 'counselor'
 		   AND u.deleted_at IS NULL
+		   AND cp.verification_status = 'approved'
 		 ORDER BY cp.full_name ASC`,
 	)
 	if err != nil {
@@ -306,16 +308,20 @@ func (h *BookingHandler) ListCounselors(c *gin.Context) {
 
 	for rows.Next() {
 		var id uuid.UUID
-		var fullName, specialization, bio, avatarURL string
+		var fullName, specialization, bio, avatarURL, location, yearsOfExperience string
+		var age *int
 
-		rows.Scan(&id, &fullName, &specialization, &bio, &avatarURL)
+		rows.Scan(&id, &fullName, &specialization, &bio, &avatarURL, &location, &age, &yearsOfExperience)
 
 		list = append(list, gin.H{
-			"id":             id,
-			"full_name":      fullName,
-			"specialization": specialization,
-			"bio":            bio,
-			"avatar_url":     avatarURL,
+			"id":                  id,
+			"full_name":           fullName,
+			"specialization":      specialization,
+			"bio":                 bio,
+			"avatar_url":          avatarURL,
+			"location":            location,
+			"age":                 age,
+			"years_of_experience": yearsOfExperience,
 		})
 	}
 
@@ -334,17 +340,20 @@ func (h *BookingHandler) GetCounselor(c *gin.Context) {
 	}
 
 	var id uuid.UUID
-	var fullName, specialization, bio, avatarURL string
+	var fullName, specialization, bio, avatarURL, location, yearsOfExperience string
+	var age *int
 
 	err = h.DB.QueryRow(c,
-		`SELECT u.id, cp.full_name, cp.specialization, cp.bio, cp.avatar_url
+		`SELECT u.id, cp.full_name, cp.specialization, cp.bio, cp.avatar_url,
+		        COALESCE(cp.location,''), cp.age, COALESCE(cp.years_of_experience,'')
 		 FROM users u
 		 JOIN counselor_profiles cp ON cp.user_id = u.id
 		 WHERE u.id = $1
 		   AND u.role = 'counselor'
-		   AND u.deleted_at IS NULL`,
+		   AND u.deleted_at IS NULL
+		   AND cp.verification_status = 'approved'`,
 		counselorID,
-	).Scan(&id, &fullName, &specialization, &bio, &avatarURL)
+	).Scan(&id, &fullName, &specialization, &bio, &avatarURL, &location, &age, &yearsOfExperience)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Counselor not found"})
@@ -352,11 +361,14 @@ func (h *BookingHandler) GetCounselor(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"id":             id,
-		"full_name":      fullName,
-		"specialization": specialization,
-		"bio":            bio,
-		"avatar_url":     avatarURL,
+		"id":                  id,
+		"full_name":           fullName,
+		"specialization":      specialization,
+		"bio":                 bio,
+		"avatar_url":          avatarURL,
+		"location":            location,
+		"age":                 age,
+		"years_of_experience": yearsOfExperience,
 	})
 }
 
