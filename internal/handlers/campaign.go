@@ -242,8 +242,11 @@ func (h *CampaignHandler) PublicList(c *gin.Context) {
 
 func (h *CampaignHandler) ListPending(c *gin.Context) {
 
+	statusFilter := c.DefaultQuery("status", "pending")
+
 	rows, err := h.DB.Query(context.Background(),
-		`SELECT c.id, c.student_id, c.title, c.description, c.target_amount, c.category, c.created_at,
+		`SELECT c.id, c.student_id, c.title, c.description, c.target_amount, c.current_amount, c.category, c.created_at,
+		        c.status,
 		        c.urgency_level, c.beneficiary_type,
 		        COALESCE(c.beneficiary_name, '') AS beneficiary_name,
 		        COALESCE(c.verification_contact_name, '') AS verification_contact_name,
@@ -257,9 +260,10 @@ func (h *CampaignHandler) ListPending(c *gin.Context) {
 		        COALESCE(sp.display_name, '') AS student_name
 		 FROM campaigns c
 		 JOIN student_profiles sp ON sp.user_id = c.student_id
-		 WHERE c.status = 'pending'
+		 WHERE ($1 = 'all' OR c.status = $1)
 		   AND c.deleted_at IS NULL
-		 ORDER BY c.created_at ASC`,
+		 ORDER BY c.created_at DESC`,
+		statusFilter,
 	)
 
 	if err != nil {
@@ -272,16 +276,17 @@ func (h *CampaignHandler) ListPending(c *gin.Context) {
 
 	for rows.Next() {
 		var id, studentID uuid.UUID
-		var title, desc, category string
+		var title, desc, category, status string
 		var urgencyLevel, beneficiaryType, beneficiaryName string
 		var verificationContactName, verificationContactInfo string
 		var beneficiaryOrgName, bankName, accountNumber, accountHolderName string
 		var accountStatus, studentName string
-		var target int64
+		var target, currentAmount int64
 		var createdAt time.Time
 		var isAnonymous bool
 
-		rows.Scan(&id, &studentID, &title, &desc, &target, &category, &createdAt,
+		rows.Scan(&id, &studentID, &title, &desc, &target, &currentAmount, &category, &createdAt,
+			&status,
 			&urgencyLevel, &beneficiaryType, &beneficiaryName,
 			&verificationContactName, &verificationContactInfo,
 			&beneficiaryOrgName, &bankName, &accountNumber, &accountHolderName,
@@ -310,8 +315,10 @@ func (h *CampaignHandler) ListPending(c *gin.Context) {
 			"title":                     title,
 			"description":               desc,
 			"target_amount":             target,
+			"current_amount":            currentAmount,
 			"category":                  category,
 			"created_at":                createdAt,
+			"status":                    status,
 			"urgency_level":             urgencyLevel,
 			"beneficiary_type":          beneficiaryType,
 			"beneficiary_name":          beneficiaryName,
