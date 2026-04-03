@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"time"
 
@@ -260,13 +261,14 @@ func (h *CampaignHandler) ListPending(c *gin.Context) {
 		        COALESCE(sp.display_name, '') AS student_name
 		 FROM campaigns c
 		 JOIN student_profiles sp ON sp.user_id = c.student_id
-		 WHERE ($1 = 'all' OR c.status = $1)
+		 WHERE ($1 = 'all' OR c.status::text = $1)
 		   AND c.deleted_at IS NULL
 		 ORDER BY c.created_at DESC`,
 		statusFilter,
 	)
 
 	if err != nil {
+		log.Printf("ListPending query error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Fetch failed"})
 		return
 	}
