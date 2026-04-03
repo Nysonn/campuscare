@@ -365,7 +365,7 @@ func (h *BookingHandler) MyBookings(c *gin.Context) {
 	userID := c.MustGet("user_id").(uuid.UUID)
 
 	rows, err := h.DB.Query(c,
-		`SELECT b.id, b.counselor_id, cp.full_name AS counselor_name,
+		`SELECT b.id, b.counselor_id, cp.full_name AS counselor_name, cp.avatar_url,
 		        b.type::text, b.start_time, b.end_time, b.location, b.status::text
 		 FROM bookings b
 		 JOIN counselor_profiles cp ON cp.user_id = b.counselor_id
@@ -384,20 +384,21 @@ func (h *BookingHandler) MyBookings(c *gin.Context) {
 
 	for rows.Next() {
 		var id, counselorID uuid.UUID
-		var counselorName, sessionType, location, status string
+		var counselorName, counselorAvatar, sessionType, location, status string
 		var startTime, endTime time.Time
 
-		rows.Scan(&id, &counselorID, &counselorName, &sessionType, &startTime, &endTime, &location, &status)
+		rows.Scan(&id, &counselorID, &counselorName, &counselorAvatar, &sessionType, &startTime, &endTime, &location, &status)
 
 		list = append(list, gin.H{
-			"id":             id,
-			"counselor_id":   counselorID,
-			"counselor_name": counselorName,
-			"type":           sessionType,
-			"start_time":     startTime,
-			"end_time":       endTime,
-			"location":       location,
-			"status":         status,
+			"id":               id,
+			"counselor_id":     counselorID,
+			"counselor_name":   counselorName,
+			"counselor_avatar": counselorAvatar,
+			"type":             sessionType,
+			"start_time":       startTime,
+			"end_time":         endTime,
+			"location":         location,
+			"status":           status,
 		})
 	}
 
