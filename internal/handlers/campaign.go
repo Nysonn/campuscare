@@ -430,6 +430,19 @@ func (h *CampaignHandler) Approve(c *gin.Context) {
 		return
 	}
 
+	// Require verified payment account before approving the campaign.
+	if body.Status == "approved" {
+		var accountStatus string
+		err := h.DB.QueryRow(context.Background(),
+			`SELECT account_status FROM campaigns WHERE id=$1 AND deleted_at IS NULL`,
+			campaignID,
+		).Scan(&accountStatus)
+		if err != nil || accountStatus != "verified" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Payment account must be verified before approving this campaign"})
+			return
+		}
+	}
+
 	_, err := h.DB.Exec(context.Background(),
 		`UPDATE campaigns SET status=$1 WHERE id=$2`,
 		body.Status, campaignID,
