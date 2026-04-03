@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"strings"
 	"time"
@@ -123,17 +124,28 @@ func scoreToCategory(score int) string {
 
 // generateQuestionsFromGroq asks Groq to produce 8 fresh evaluation questions.
 // Returns an error if Groq is unreachable or returns malformed JSON.
+var questionFocusThemes = []string{
+	"Use a reflective, introspective tone.",
+	"Use a direct, practical tone.",
+	"Frame questions around the student's daily routine.",
+	"Frame questions around the student's emotional experience.",
+	"Frame questions around the student's relationships and environment.",
+}
+
 func generateQuestionsFromGroq() ([]evaluationQuestion, error) {
-	prompt := `You are a mental health self-assessment tool for university students in Uganda. Generate exactly 8 unique mental health evaluation questions. Each question must have exactly 4 answer options ordered from worst to best:
+	theme := questionFocusThemes[rand.Intn(len(questionFocusThemes))]
+	seed := rand.Intn(999999)
+
+	prompt := fmt.Sprintf(`[Request #%d] You are a mental health self-assessment tool for university students in Uganda. Generate exactly 8 unique mental health evaluation questions. Each question must have exactly 4 answer options ordered from worst to best:
 - index 0 = score 1 (worst state)
 - index 1 = score 2 (poor state)
 - index 2 = score 3 (okay state)
 - index 3 = score 4 (best state)
 
-Cover these 8 topics in any order, with fresh and varied wording each time: sleep quality, overall mood, academic stress, social connection, ability to focus, physical activity, anxiety levels, general wellbeing.
+Cover these 8 topics in any order, with fresh and varied wording: sleep quality, overall mood, academic stress, social connection, ability to focus, physical activity, anxiety levels, general wellbeing. %s Do NOT reuse phrasing from previous responses.
 
 Respond ONLY with valid JSON — no markdown, no code fences, no explanation. Exact structure required:
-{"questions":[{"id":1,"text":"...","options":["worst","poor","okay","best"]},{"id":2,"text":"...","options":["...","...","...","..."]},...,{"id":8,"text":"...","options":["...","...","...","..."]}]}`
+{"questions":[{"id":1,"text":"...","options":["worst","poor","okay","best"]},{"id":2,"text":"...","options":["...","...","...","..."]},...,{"id":8,"text":"...","options":["...","...","...","..."]}]}`, seed, theme)
 
 	messages := []map[string]string{
 		{"role": "user", "content": prompt},
