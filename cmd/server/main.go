@@ -36,6 +36,7 @@ func main() {
 		DB:             database,
 		SessionService: sessionService,
 		Mailer:         mailer,
+		FrontendURL:    cfg.FrontendURL,
 	}
 
 	r := gin.Default()
@@ -64,6 +65,8 @@ func main() {
 	r.POST("/register", authHandler.Register)
 	r.POST("/login", authHandler.Login)
 	r.POST("/logout", authHandler.Logout)
+	r.POST("/forgot-password", authHandler.ForgotPassword)
+	r.POST("/reset-password", authHandler.ResetPassword)
 
 	campaignHandler := &handlers.CampaignHandler{DB: database, Mailer: mailer}
 

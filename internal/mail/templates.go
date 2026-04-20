@@ -273,6 +273,34 @@ func CounselorApprovedTemplate(fullName string) string {
 	</div>`
 }
 
+func PasswordResetTemplate(name, resetLink string) string {
+	return `
+	<div style="font-family: Arial, sans-serif; background:#f0fff4; padding:32px; max-width:560px; margin:auto;">
+		<h2 style="color:#2f855a; margin-bottom:4px;">CampusCare — Password Reset</h2>
+		<p style="color:#4a5568;">Hi ` + name + `,</p>
+		<p style="color:#4a5568;">
+			We received a request to reset the password for your CampusCare account.
+			Click the button below to choose a new password. This link expires in <strong>1 hour</strong>.
+		</p>
+		<div style="text-align:center; margin:32px 0;">
+			<a href="` + resetLink + `"
+			   style="background:#2f855a; color:#fff; text-decoration:none; padding:14px 32px;
+			          border-radius:8px; font-weight:bold; font-size:15px; display:inline-block;">
+				Reset My Password
+			</a>
+		</div>
+		<p style="color:#718096; font-size:13px;">
+			If the button above doesn't work, copy and paste this link into your browser:<br/>
+			<a href="` + resetLink + `" style="color:#2f855a; word-break:break-all;">` + resetLink + `</a>
+		</p>
+		<p style="color:#718096; font-size:13px; margin-top:24px;">
+			If you did not request a password reset, you can safely ignore this email.
+			Your password will not change.
+		</p>
+		<p style="margin-top:24px; color:#2f855a;">The CampusCare Team</p>
+	</div>`
+}
+
 func SessionReminderStudentTemplate(studentName, counselorName, sessionType, startTime, endTime, location, meetLink string) string {
 	sessionLabel := "In-Person Session"
 	detailRow := ""

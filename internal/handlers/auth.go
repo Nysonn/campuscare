@@ -2,10 +2,13 @@ package handlers
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Nysonn/campuscare/internal/mail"
 	"github.com/Nysonn/campuscare/internal/services"
@@ -27,6 +30,7 @@ type AuthHandler struct {
 	DB             *pgxpool.Pool
 	SessionService *services.SessionService
 	Mailer         *mail.Mailer
+	FrontendURL    string
 }
 
 type RegisterRequest struct {
@@ -180,6 +184,131 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out"})
+}
+
+func (h *AuthHandler) ForgotPassword(c *gin.Context) {
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := c.BindJSON(&req); err != nil || strings.TrimSpace(req.Email) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email is required"})
+		return
+	}
+	req.Email = normalizeEmail(req.Email)
+
+	// Always respond 200 so we don't leak whether the email exists.
+	c.JSON(http.StatusOK, gin.H{"message": "If that email is registered you will receive a reset link shortly"})
+
+	go func() {
+		var userID uuid.UUID
+		var name string
+		err := h.DB.QueryRow(context.Background(),
+			`SELECT u.id, COALESCE(sp.display_name, cp.full_name, u.email)
+			 FROM users u
+			 LEFT JOIN student_profiles  sp ON sp.user_id = u.id
+			 LEFT JOIN counselor_profiles cp ON cp.user_id = u.id
+			 WHERE u.email = $1 AND u.deleted_at IS NULL`,
+			req.Email,
+		).Scan(&userID, &name)
+		if err != nil {
+			return // user not found — silently drop
+		}
+
+		// Generate a 32-byte cryptographically random token.
+		raw := make([]byte, 32)
+		if _, err := rand.Read(raw); err != nil {
+			log.Printf("[forgot-password] token generation failed: %v", err)
+			return
+		}
+		token := hex.EncodeToString(raw)
+
+		_, err = h.DB.Exec(context.Background(),
+			`INSERT INTO password_reset_tokens (user_id, token, expires_at)
+			 VALUES ($1, $2, $3)`,
+			userID, token, time.Now().Add(time.Hour),
+		)
+		if err != nil {
+			log.Printf("[forgot-password] DB insert failed: %v", err)
+			return
+		}
+
+		resetLink := h.FrontendURL + "/reset-password?token=" + token
+		h.Mailer.SendAsync(req.Email, "Reset your CampusCare password",
+			mail.PasswordResetTemplate(name, resetLink))
+	}()
+}
+
+func (h *AuthHandler) ResetPassword(c *gin.Context) {
+	var req struct {
+		Token    string `json:"token"`
+		Password string `json:"password"`
+	}
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+	if strings.TrimSpace(req.Token) == "" || len(req.Password) < 8 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Token and a password of at least 8 characters are required"})
+		return
+	}
+
+	var tokenID uuid.UUID
+	var userID uuid.UUID
+	var expiresAt time.Time
+	var usedAt *time.Time
+
+	err := h.DB.QueryRow(context.Background(),
+		`SELECT id, user_id, expires_at, used_at FROM password_reset_tokens WHERE token = $1`,
+		req.Token,
+	).Scan(&tokenID, &userID, &expiresAt, &usedAt)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid or expired reset link"})
+		return
+	}
+	if usedAt != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "This reset link has already been used"})
+		return
+	}
+	if time.Now().After(expiresAt) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "This reset link has expired. Please request a new one"})
+		return
+	}
+
+	hash, err := services.HashPassword(req.Password)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process password"})
+		return
+	}
+
+	tx, err := h.DB.Begin(context.Background())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal error"})
+		return
+	}
+	defer tx.Rollback(context.Background())
+
+	if _, err = tx.Exec(context.Background(),
+		`UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2`,
+		hash, userID,
+	); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update password"})
+		return
+	}
+
+	if _, err = tx.Exec(context.Background(),
+		`UPDATE password_reset_tokens SET used_at = now() WHERE id = $1`, tokenID,
+	); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to invalidate token"})
+		return
+	}
+
+	// Invalidate all existing sessions so the user must log in with the new password.
+	tx.Exec(context.Background(),
+		`DELETE FROM sessions WHERE user_id = $1`, userID,
+	)
+
+	tx.Commit(context.Background())
+	c.JSON(http.StatusOK, gin.H{"message": "Password updated successfully"})
 }
 
 // splitName splits a full name into [firstName, lastName].
