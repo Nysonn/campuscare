@@ -48,7 +48,7 @@ func main() {
 	})
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173", "https://campuscareug.web.app", "https://campuscareug.firebaseapp.com", "http://192.168.11.23:5173", "http://172.23.0.1:5173", "http://172.19.0.1:5173", "https://campuscare.me"},
+		AllowOrigins:     []string{"https://campuscare.me", "http://localhost:5173", "http://192.168.11.23:5173", "http://172.23.0.1:5173", "http://172.19.0.1:5173"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,

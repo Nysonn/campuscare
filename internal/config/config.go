@@ -27,7 +27,7 @@ func Load() *Config {
 
 	frontendURL := os.Getenv("FRONTEND_URL")
 	if frontendURL == "" {
-		frontendURL = "https://campuscareug.web.app"
+		frontendURL = "https://campuscare.me"
 	}
 
 	return &Config{
