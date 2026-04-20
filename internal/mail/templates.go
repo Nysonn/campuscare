@@ -273,6 +273,60 @@ func CounselorApprovedTemplate(fullName string) string {
 	</div>`
 }
 
+func SessionReminderStudentTemplate(studentName, counselorName, sessionType, startTime, endTime, location, meetLink string) string {
+	sessionLabel := "In-Person Session"
+	detailRow := ""
+	if sessionType == "online" {
+		sessionLabel = "Online Session"
+		if meetLink != "" {
+			detailRow = `<tr><td style="padding:8px; font-weight:bold;">Join Link</td><td style="padding:8px;"><a href="` + meetLink + `">` + meetLink + `</a></td></tr>`
+		}
+	} else if location != "" {
+		detailRow = `<tr><td style="padding:8px; font-weight:bold;">Location</td><td style="padding:8px;">` + location + `</td></tr>`
+	}
+	return `
+	<div style="font-family: Arial, sans-serif; background:#fffbeb; padding:20px; max-width:560px; margin:auto;">
+		<h2 style="color:#b7791f;">CampusCare — Session Reminder</h2>
+		<p>Dear ` + studentName + `,</p>
+		<p>This is a friendly reminder that your counselling session starts in <strong>30 minutes</strong>.</p>
+		<table style="border-collapse:collapse; width:100%; margin:16px 0;">
+			<tr><td style="padding:8px; font-weight:bold;">Counselor</td><td style="padding:8px;">` + counselorName + `</td></tr>
+			<tr style="background:#fefcbf;"><td style="padding:8px; font-weight:bold;">Type</td><td style="padding:8px;">` + sessionLabel + `</td></tr>
+			<tr><td style="padding:8px; font-weight:bold;">Date &amp; Time</td><td style="padding:8px;">` + startTime + ` – ` + endTime + `</td></tr>
+			` + detailRow + `
+		</table>
+		<p>Please make sure you are ready and available at the scheduled time.</p>
+		<p style="color:#b7791f;">Best regards,<br/>CampusCare Team</p>
+	</div>`
+}
+
+func SessionReminderCounselorTemplate(counselorName, studentName, sessionType, startTime, endTime, location, meetLink string) string {
+	sessionLabel := "In-Person Session"
+	detailRow := ""
+	if sessionType == "online" {
+		sessionLabel = "Online Session"
+		if meetLink != "" {
+			detailRow = `<tr><td style="padding:8px; font-weight:bold;">Join Link</td><td style="padding:8px;"><a href="` + meetLink + `">` + meetLink + `</a></td></tr>`
+		}
+	} else if location != "" {
+		detailRow = `<tr><td style="padding:8px; font-weight:bold;">Location</td><td style="padding:8px;">` + location + `</td></tr>`
+	}
+	return `
+	<div style="font-family: Arial, sans-serif; background:#ebf8ff; padding:20px; max-width:560px; margin:auto;">
+		<h2 style="color:#2b6cb0;">CampusCare — Session Reminder</h2>
+		<p>Dear ` + counselorName + `,</p>
+		<p>This is a reminder that you have a counselling session starting in <strong>30 minutes</strong>.</p>
+		<table style="border-collapse:collapse; width:100%; margin:16px 0;">
+			<tr><td style="padding:8px; font-weight:bold;">Student</td><td style="padding:8px;">` + studentName + `</td></tr>
+			<tr style="background:#bee3f8;"><td style="padding:8px; font-weight:bold;">Type</td><td style="padding:8px;">` + sessionLabel + `</td></tr>
+			<tr><td style="padding:8px; font-weight:bold;">Date &amp; Time</td><td style="padding:8px;">` + startTime + ` – ` + endTime + `</td></tr>
+			` + detailRow + `
+		</table>
+		<p>Please be prepared and available for your student at the scheduled time.</p>
+		<p style="color:#2b6cb0;">Best regards,<br/>CampusCare Team</p>
+	</div>`
+}
+
 func NewSponsorTemplate(sponsorName string) string {
 	return `
 	<div style="font-family: Arial, sans-serif; background:#f0fff4; padding:32px; max-width:560px; margin:auto;">

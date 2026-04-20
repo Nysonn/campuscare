@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/Nysonn/campuscare/internal/chatbot"
@@ -9,6 +10,7 @@ import (
 	"github.com/Nysonn/campuscare/internal/handlers"
 	"github.com/Nysonn/campuscare/internal/mail"
 	"github.com/Nysonn/campuscare/internal/middleware"
+	"github.com/Nysonn/campuscare/internal/reminder"
 	"github.com/Nysonn/campuscare/internal/services"
 	"github.com/Nysonn/campuscare/internal/stream"
 	"github.com/gin-contrib/cors"
@@ -27,6 +29,8 @@ func main() {
 
 	mailer := mail.NewMailer()
 	streamClient := stream.NewClient(cfg.StreamAPIKey, cfg.StreamAPISecret)
+
+	reminder.NewScheduler(database, mailer).Start(context.Background())
 
 	authHandler := &handlers.AuthHandler{
 		DB:             database,
