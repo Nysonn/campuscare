@@ -151,7 +151,7 @@ func main() {
 	studentSponsor.GET("/stream/token", sponsorHandler.GetStreamToken)
 
 	// ── Behaviour Tracking routes (student-only) ─────────────────────────────
-	behaviourHandler := &handlers.BehaviourHandler{DB: database}
+	behaviourHandler := &handlers.BehaviourHandler{DB: database, Mailer: mailer}
 
 	studentBehaviour := auth.Group("/behaviour")
 	studentBehaviour.Use(middleware.RequireRole(database, "student"))
@@ -197,6 +197,15 @@ func main() {
 
 	admin.GET("/counselors", adminHandler.ListPendingCounselors)
 	admin.PUT("/counselors/:id/verify", adminHandler.ApproveCounselor)
+
+	// ── Admin wallet routes ───────────────────────────────────────────────────
+	walletHandler := &handlers.WalletHandler{DB: database}
+	admin.GET("/wallet/balance", walletHandler.GetPoolBalance)
+	admin.GET("/wallet/campaigns", walletHandler.ListApprovedCampaigns)
+	admin.POST("/wallet/disburse", walletHandler.DisburseToCampaign)
+	admin.POST("/wallet/withdraw", walletHandler.WithdrawFromPool)
+	admin.GET("/wallet/disbursements", walletHandler.ListDisbursements)
+	admin.GET("/wallet/withdrawals", walletHandler.ListWithdrawals)
 
 	r.Run(":" + cfg.AppPort)
 }

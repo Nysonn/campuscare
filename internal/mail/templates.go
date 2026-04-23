@@ -375,3 +375,90 @@ func NewSponsorTemplate(sponsorName string) string {
 		<p style="margin-top:24px; color:#2f855a;">With gratitude,<br/><strong>The CampusCare Team</strong></p>
 	</div>`
 }
+
+func HabitGoalCreatedTemplate(studentName, goalTitle, direction, startDate, endDate string) string {
+	directionLabel := "build the habit of"
+	directionTip := "Consistency is built one day at a time. Even small steps forward count."
+	if direction == "quit" {
+		directionLabel = "quit"
+		directionTip := "Every day you resist is a victory. Be proud of every single one."
+		_ = directionTip
+	}
+	return `
+	<div style="font-family: Arial, sans-serif; background:#f0fff4; padding:32px; max-width:560px; margin:auto;">
+		<h2 style="color:#2f855a; margin-bottom:4px;">CampusCare — Your Goal is Set! 🎯</h2>
+		<p style="color:#4a5568;">Hi ` + studentName + `,</p>
+		<p style="color:#4a5568;">
+			You've just taken a powerful step. Your new behaviour goal has been created on CampusCare:
+		</p>
+		<div style="background:#e6ffed; border-left:4px solid #2f855a; padding:16px; margin:20px 0; border-radius:6px;">
+			<p style="margin:0; font-weight:bold; color:#276749; font-size:16px;">` + goalTitle + `</p>
+			<p style="margin:6px 0 0; color:#4a5568; font-size:13px;">
+				Goal: <strong>` + directionLabel + ` "` + goalTitle + `"</strong><br/>
+				Period: <strong>` + startDate + `</strong> → <strong>` + endDate + `</strong>
+			</p>
+		</div>
+		<p style="color:#4a5568;">` + directionTip + `</p>
+		<p style="color:#4a5568;">
+			Log your progress each day from your <strong>Behaviour</strong> section on the CampusCare dashboard.
+			We'll be cheering you on every step of the way.
+		</p>
+		<p style="margin-top:24px; color:#2f855a;">You've got this,<br/><strong>The CampusCare Team</strong></p>
+	</div>`
+}
+
+func DailyMotivationTemplate(studentName, goalTitle, direction string, successDays int) string {
+	actionWord := "build"
+	if direction == "quit" {
+		actionWord = "resist"
+	}
+	successNote := fmt.Sprintf("You've already succeeded <strong>%d day(s)</strong> — that's real progress.", successDays)
+	if successDays == 0 {
+		successNote = "Every journey starts with a single step. Today is your chance to begin."
+	}
+	return `
+	<div style="font-family: Arial, sans-serif; background:#f0fff4; padding:32px; max-width:560px; margin:auto;">
+		<h2 style="color:#2f855a; margin-bottom:4px;">CampusCare — Keep Going! 💪</h2>
+		<p style="color:#4a5568;">Hi ` + studentName + `,</p>
+		<p style="color:#4a5568;">
+			Just a quick note to remind you about your active goal on CampusCare:
+		</p>
+		<div style="background:#e6ffed; border-left:4px solid #2f855a; padding:16px; margin:20px 0; border-radius:6px;">
+			<p style="margin:0; font-weight:bold; color:#276749; font-size:15px;">` + goalTitle + `</p>
+		</div>
+		<p style="color:#4a5568;">` + successNote + `</p>
+		<p style="color:#4a5568;">
+			Remember to ` + actionWord + ` your habit today and log it in your dashboard. Small daily actions
+			create lasting change. You are capable of more than you know.
+		</p>
+		<p style="color:#4a5568; font-style:italic;">
+			"It does not matter how slowly you go as long as you do not stop." — Confucius
+		</p>
+		<p style="margin-top:24px; color:#2f855a;">Believing in you,<br/><strong>The CampusCare Team</strong></p>
+	</div>`
+}
+
+func HabitMissedTemplate(studentName, goalTitle string) string {
+	return `
+	<div style="font-family: Arial, sans-serif; background:#fffbeb; padding:32px; max-width:560px; margin:auto;">
+		<h2 style="color:#b7791f; margin-bottom:4px;">CampusCare — We Miss You! 🌱</h2>
+		<p style="color:#4a5568;">Hi ` + studentName + `,</p>
+		<p style="color:#4a5568;">
+			We noticed you haven't logged your habit for the past two days on CampusCare:
+		</p>
+		<div style="background:#fefcbf; border-left:4px solid #b7791f; padding:16px; margin:20px 0; border-radius:6px;">
+			<p style="margin:0; font-weight:bold; color:#744210; font-size:15px;">` + goalTitle + `</p>
+		</div>
+		<p style="color:#4a5568;">
+			That's okay — life gets busy and sometimes we lose track. What matters is that you come back.
+			Streaks can be rebuilt, and your commitment to yourself is what counts.
+		</p>
+		<p style="color:#4a5568;">
+			Log today's progress from your CampusCare dashboard and keep your momentum going. We're rooting for you!
+		</p>
+		<p style="color:#4a5568; font-style:italic;">
+			"Fall seven times, stand up eight." — Japanese Proverb
+		</p>
+		<p style="margin-top:24px; color:#b7791f;">Come back strong,<br/><strong>The CampusCare Team</strong></p>
+	</div>`
+}

@@ -4,13 +4,15 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Nysonn/campuscare/internal/mail"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type BehaviourHandler struct {
-	DB *pgxpool.Pool
+	DB     *pgxpool.Pool
+	Mailer *mail.Mailer
 }
 
 // CreateGoal — POST /behaviour/goals
@@ -75,6 +77,24 @@ func (h *BehaviourHandler) CreateGoal(c *gin.Context) {
 	).Scan(&goalID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create goal"})
 		return
+	}
+
+	// Send kickoff motivation email.
+	if h.Mailer != nil {
+		var studentEmail, studentName string
+		if err := h.DB.QueryRow(c,
+			`SELECT u.email, COALESCE(sp.display_name, u.email)
+			 FROM users u
+			 LEFT JOIN student_profiles sp ON sp.user_id = u.id
+			 WHERE u.id = $1`,
+			userID,
+		).Scan(&studentEmail, &studentName); err == nil {
+			body := mail.HabitGoalCreatedTemplate(
+				studentName, req.Title, req.Direction,
+				req.StartDate, req.EndDate,
+			)
+			h.Mailer.SendAsync(studentEmail, "Your new habit goal is set — let's go! 🎯", body)
+		}
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Behaviour goal created", "id": goalID})

@@ -10,8 +10,9 @@ import (
 )
 
 type Scheduler struct {
-	DB     *pgxpool.Pool
-	Mailer *mail.Mailer
+	DB            *pgxpool.Pool
+	Mailer        *mail.Mailer
+	lastDailyDate string // YYYY-MM-DD of the last time daily habit jobs ran
 }
 
 func NewScheduler(db *pgxpool.Pool, mailer *mail.Mailer) *Scheduler {
@@ -29,6 +30,7 @@ func (s *Scheduler) run(ctx context.Context) {
 
 	// Run once immediately on startup, then on each tick.
 	s.sendDueReminders(ctx)
+	s.runDailyHabitJobs(ctx)
 
 	for {
 		select {
@@ -36,21 +38,36 @@ func (s *Scheduler) run(ctx context.Context) {
 			return
 		case <-ticker.C:
 			s.sendDueReminders(ctx)
+			// Daily habit jobs fire once per calendar day when the local hour >= 8.
+			today := time.Now().Format("2006-01-02")
+			if time.Now().Hour() >= 8 && s.lastDailyDate != today {
+				s.lastDailyDate = today
+				s.runDailyHabitJobs(ctx)
+			}
 		}
 	}
 }
 
+// runDailyHabitJobs sends motivation emails to students with active goals and
+// missed-tracking emails for students who haven't logged the past 2 days.
+func (s *Scheduler) runDailyHabitJobs(ctx context.Context) {
+	s.sendMotivationEmails(ctx)
+	s.sendMissedHabitEmails(ctx)
+}
+
+// ── Booking session reminders ─────────────────────────────────────────────────
+
 type bookingReminder struct {
-	ID              string
-	StudentEmail    string
-	StudentName     string
-	CounselorEmail  string
-	CounselorName   string
-	SessionType     string
-	StartTime       time.Time
-	EndTime         time.Time
-	Location        string
-	MeetLink        string
+	ID             string
+	StudentEmail   string
+	StudentName    string
+	CounselorEmail string
+	CounselorName  string
+	SessionType    string
+	StartTime      time.Time
+	EndTime        time.Time
+	Location       string
+	MeetLink       string
 }
 
 func (s *Scheduler) sendDueReminders(ctx context.Context) {
@@ -116,7 +133,6 @@ func (s *Scheduler) sendDueReminders(ctx context.Context) {
 		endFmt := br.EndTime.Format("15:04 MST")
 
 		meetLink := ""
-		// google_event_id is stored; meet link is not a direct column — leave blank for physical
 		if br.SessionType == "online" {
 			meetLink = br.MeetLink
 		}
@@ -141,5 +157,132 @@ func (s *Scheduler) sendDueReminders(ctx context.Context) {
 		} else {
 			log.Printf("[reminder] sent 30-min reminder for booking %s", br.ID)
 		}
+	}
+}
+
+// ── Daily habit motivation emails ─────────────────────────────────────────────
+
+func (s *Scheduler) sendMotivationEmails(ctx context.Context) {
+	rows, err := s.DB.Query(ctx, `
+		SELECT
+			bg.id,
+			bg.title,
+			bg.direction,
+			u.email,
+			COALESCE(sp.display_name, u.email) AS student_name,
+			COALESCE(
+			  (SELECT COUNT(*) FROM behaviour_logs bl
+			   WHERE bl.goal_id = bg.id AND bl.did_it = TRUE),
+			  0
+			) AS success_days
+		FROM behaviour_goals bg
+		JOIN users u ON u.id = bg.student_id
+		LEFT JOIN student_profiles sp ON sp.user_id = bg.student_id
+		WHERE bg.status = 'active'
+		  AND (bg.last_motivation_sent IS NULL OR bg.last_motivation_sent < CURRENT_DATE)
+	`)
+	if err != nil {
+		log.Printf("[habit-motivation] query error: %v", err)
+		return
+	}
+	defer rows.Close()
+
+	type goalRow struct {
+		ID          string
+		Title       string
+		Direction   string
+		Email       string
+		StudentName string
+		SuccessDays int
+	}
+
+	var goals []goalRow
+	for rows.Next() {
+		var g goalRow
+		if err := rows.Scan(&g.ID, &g.Title, &g.Direction, &g.Email, &g.StudentName, &g.SuccessDays); err != nil {
+			continue
+		}
+		goals = append(goals, g)
+	}
+
+	for _, g := range goals {
+		body := mail.DailyMotivationTemplate(g.StudentName, g.Title, g.Direction, g.SuccessDays)
+		s.Mailer.SendAsync(g.Email, "Daily reminder: keep your habit streak going! 💪", body)
+
+		if _, err := s.DB.Exec(ctx,
+			`UPDATE behaviour_goals SET last_motivation_sent = CURRENT_DATE WHERE id = $1`, g.ID,
+		); err != nil {
+			log.Printf("[habit-motivation] failed to update last_motivation_sent for goal %s: %v", g.ID, err)
+		}
+	}
+
+	if len(goals) > 0 {
+		log.Printf("[habit-motivation] sent motivation emails to %d students", len(goals))
+	}
+}
+
+// ── Missed-habit notification emails ─────────────────────────────────────────
+
+func (s *Scheduler) sendMissedHabitEmails(ctx context.Context) {
+	// Find active goals that started at least 2 days ago, where there are no log
+	// entries for both yesterday AND the day before, and we haven't already notified today.
+	rows, err := s.DB.Query(ctx, `
+		SELECT
+			bg.id,
+			bg.title,
+			u.email,
+			COALESCE(sp.display_name, u.email) AS student_name
+		FROM behaviour_goals bg
+		JOIN users u ON u.id = bg.student_id
+		LEFT JOIN student_profiles sp ON sp.user_id = bg.student_id
+		WHERE bg.status = 'active'
+		  AND bg.start_date <= CURRENT_DATE - INTERVAL '2 days'
+		  AND (bg.missed_notified_date IS NULL OR bg.missed_notified_date < CURRENT_DATE)
+		  AND NOT EXISTS (
+		      SELECT 1 FROM behaviour_logs bl
+		      WHERE bl.goal_id = bg.id
+		        AND bl.log_date = CURRENT_DATE - INTERVAL '1 day'
+		  )
+		  AND NOT EXISTS (
+		      SELECT 1 FROM behaviour_logs bl
+		      WHERE bl.goal_id = bg.id
+		        AND bl.log_date = CURRENT_DATE - INTERVAL '2 days'
+		  )
+	`)
+	if err != nil {
+		log.Printf("[habit-missed] query error: %v", err)
+		return
+	}
+	defer rows.Close()
+
+	type goalRow struct {
+		ID          string
+		Title       string
+		Email       string
+		StudentName string
+	}
+
+	var goals []goalRow
+	for rows.Next() {
+		var g goalRow
+		if err := rows.Scan(&g.ID, &g.Title, &g.Email, &g.StudentName); err != nil {
+			continue
+		}
+		goals = append(goals, g)
+	}
+
+	for _, g := range goals {
+		body := mail.HabitMissedTemplate(g.StudentName, g.Title)
+		s.Mailer.SendAsync(g.Email, "We miss you — come back to your habit goal 🌱", body)
+
+		if _, err := s.DB.Exec(ctx,
+			`UPDATE behaviour_goals SET missed_notified_date = CURRENT_DATE WHERE id = $1`, g.ID,
+		); err != nil {
+			log.Printf("[habit-missed] failed to update missed_notified_date for goal %s: %v", g.ID, err)
+		}
+	}
+
+	if len(goals) > 0 {
+		log.Printf("[habit-missed] sent missed-habit emails to %d students", len(goals))
 	}
 }

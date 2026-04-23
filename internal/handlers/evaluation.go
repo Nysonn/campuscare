@@ -183,6 +183,66 @@ Respond ONLY with valid JSON — no markdown, no code fences, no explanation. Ex
 	return result.Questions, nil
 }
 
+// generateRecommendations asks Groq for 3–4 concise actionable steps based on score/category.
+// Returns a slice of recommendation strings. Falls back to static tips on error.
+func generateRecommendations(score int, category string) []string {
+	prompt := fmt.Sprintf(`A university student in Uganda just completed a mental health self-evaluation.
+Score: %d / 32 — Category: %s
+
+Give exactly 3 concise, practical, actionable recommendations tailored to their score.
+Each recommendation should be one sentence and immediately doable (not vague).
+Respond ONLY with a JSON array of strings — no markdown, no explanation.
+Example format: ["Recommendation 1.", "Recommendation 2.", "Recommendation 3."]`,
+		score, category)
+
+	messages := []map[string]string{
+		{"role": "user", "content": prompt},
+	}
+
+	raw, err := chatbot.CallGroq(messages, 0.7)
+	if err == nil {
+		raw = strings.TrimSpace(raw)
+		if strings.HasPrefix(raw, "```") {
+			lines := strings.Split(raw, "\n")
+			if len(lines) > 2 {
+				raw = strings.Join(lines[1:len(lines)-1], "\n")
+			}
+		}
+		var recs []string
+		if jsonErr := json.Unmarshal([]byte(raw), &recs); jsonErr == nil && len(recs) > 0 {
+			return recs
+		}
+	}
+
+	// Static fallback per category.
+	switch category {
+	case "Needs Support":
+		return []string{
+			"Book a session with a CampusCare counsellor this week — reaching out is the bravest first step.",
+			"Share how you're feeling with one trusted person today, even in a short message.",
+			"Step outside for at least 10 minutes of fresh air and sunlight to help reset your mood.",
+		}
+	case "Moderate Concern":
+		return []string{
+			"Set a consistent sleep time tonight and aim for 7–8 hours every night this week.",
+			"Take three 5-minute breaks during your study sessions to breathe and stretch.",
+			"Reconnect with a friend or family member you haven't spoken to in a while.",
+		}
+	case "Doing Well":
+		return []string{
+			"Keep up your sleep routine — it's clearly one of your strongest wellbeing habits.",
+			"Add one short physical activity (a walk, stretch, or jog) to your daily schedule.",
+			"Write down three things you're grateful for each evening to reinforce your positive mindset.",
+		}
+	default: // Thriving
+		return []string{
+			"Share your positive habits with a peer — your energy can inspire others around you.",
+			"Challenge yourself to learn something new this week to keep your mind engaged.",
+			"Do one act of kindness or community involvement to deepen your sense of purpose.",
+		}
+	}
+}
+
 // generatePersonalizedFeedback asks Groq to write a warm, personalised message
 // based on the student's actual scores. Falls back to a static message on error.
 func generatePersonalizedFeedback(score int, category string, answers map[string]int) string {
@@ -270,6 +330,7 @@ func (h *EvaluationHandler) SubmitEvaluation(c *gin.Context) {
 
 	category := scoreToCategory(total)
 	message := generatePersonalizedFeedback(total, category, req.Answers)
+	recommendations := generateRecommendations(total, category)
 
 	var evalID uuid.UUID
 	if err := h.DB.QueryRow(c,
@@ -283,10 +344,11 @@ func (h *EvaluationHandler) SubmitEvaluation(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"id":       evalID,
-		"score":    total,
-		"category": category,
-		"message":  message,
+		"id":              evalID,
+		"score":           total,
+		"category":        category,
+		"message":         message,
+		"recommendations": recommendations,
 	})
 }
 

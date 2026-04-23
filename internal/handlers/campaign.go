@@ -196,6 +196,7 @@ func (h *CampaignHandler) PublicGet(c *gin.Context) {
 
 	var id uuid.UUID
 	var title, desc, author, avatarURL, status, accountStatus, category string
+	var urgencyLevel, beneficiaryType, beneficiaryName, beneficiaryOrgName string
 	var bankName, accountNumber, accountHolderName string
 	var target, current int64
 	var createdAt time.Time
@@ -203,7 +204,12 @@ func (h *CampaignHandler) PublicGet(c *gin.Context) {
 
 	err = h.DB.QueryRow(context.Background(),
 		`SELECT c.id, c.title, c.description, c.target_amount, c.current_amount, c.created_at,
-		        c.status::text, c.account_status, COALESCE(c.category, '') AS category,
+		        c.status::text, c.account_status,
+		        COALESCE(c.category, '') AS category,
+		        COALESCE(c.urgency_level, '') AS urgency_level,
+		        COALESCE(c.beneficiary_type, '') AS beneficiary_type,
+		        COALESCE(c.beneficiary_name, '') AS beneficiary_name,
+		        COALESCE(c.beneficiary_org_name, '') AS beneficiary_org_name,
 		        COALESCE(c.bank_name, '') AS bank_name,
 		        COALESCE(c.account_number, '') AS account_number,
 		        COALESCE(c.account_holder_name, '') AS account_holder_name,
@@ -218,6 +224,7 @@ func (h *CampaignHandler) PublicGet(c *gin.Context) {
 		campaignID,
 	).Scan(&id, &title, &desc, &target, &current, &createdAt,
 		&status, &accountStatus, &category,
+		&urgencyLevel, &beneficiaryType, &beneficiaryName, &beneficiaryOrgName,
 		&bankName, &accountNumber, &accountHolderName,
 		&isAnonymous, &author, &avatarURL)
 
@@ -226,22 +233,47 @@ func (h *CampaignHandler) PublicGet(c *gin.Context) {
 		return
 	}
 
+	// Fetch attachments.
+	type Attachment struct {
+		URL   string `json:"url"`
+		Label string `json:"label"`
+	}
+	attachments := []Attachment{}
+	attRows, attErr := h.DB.Query(context.Background(),
+		`SELECT file_url, COALESCE(label, 'Document') FROM campaign_attachments WHERE campaign_id = $1`,
+		id,
+	)
+	if attErr == nil {
+		defer attRows.Close()
+		for attRows.Next() {
+			var a Attachment
+			if scanErr := attRows.Scan(&a.URL, &a.Label); scanErr == nil {
+				attachments = append(attachments, a)
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"id":                  id,
-		"title":               title,
-		"description":         desc,
-		"target_amount":       target,
-		"current_amount":      current,
-		"created_at":          createdAt,
-		"status":              status,
-		"account_status":      accountStatus,
-		"category":            category,
-		"bank_name":           bankName,
-		"account_number":      accountNumber,
-		"account_holder_name": accountHolderName,
-		"is_anonymous":        isAnonymous,
-		"author":              author,
-		"avatar_url":          avatarURL,
+		"id":                   id,
+		"title":                title,
+		"description":          desc,
+		"target_amount":        target,
+		"current_amount":       current,
+		"created_at":           createdAt,
+		"status":               status,
+		"account_status":       accountStatus,
+		"category":             category,
+		"urgency_level":        urgencyLevel,
+		"beneficiary_type":     beneficiaryType,
+		"beneficiary_name":     beneficiaryName,
+		"beneficiary_org_name": beneficiaryOrgName,
+		"bank_name":            bankName,
+		"account_number":       accountNumber,
+		"account_holder_name":  accountHolderName,
+		"is_anonymous":         isAnonymous,
+		"author":               author,
+		"avatar_url":           avatarURL,
+		"attachments":          attachments,
 	})
 }
 
