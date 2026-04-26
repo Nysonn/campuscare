@@ -72,6 +72,7 @@ func main() {
 
 	auth := r.Group("/")
 	auth.Use(middleware.AuthRequired(sessionService))
+	auth.Use(middleware.UpdateLastActive(database))
 
 	auth.POST("/campaigns", middleware.RequireRole(database, "student"), campaignHandler.Create)
 	auth.PUT("/campaigns/:id", middleware.RequireRole(database, "student"), campaignHandler.Update)
@@ -148,6 +149,7 @@ func main() {
 	// Sponsorship & chat
 	studentSponsor.GET("/sponsorships/mine", sponsorHandler.MySponsorship)
 	studentSponsor.DELETE("/sponsorships/mine", sponsorHandler.TerminateSponsorship)
+	studentSponsor.POST("/sponsorships/notify-message", sponsorHandler.NotifyPartnerMessage)
 	studentSponsor.GET("/stream/token", sponsorHandler.GetStreamToken)
 
 	// ── Behaviour Tracking routes (student-only) ─────────────────────────────

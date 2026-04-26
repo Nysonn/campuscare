@@ -811,6 +811,84 @@ func (h *SponsorHandler) notifySponsorTerminated(sponsorID, sponseeID uuid.UUID)
 	)
 }
 
+// NotifyPartnerMessage — POST /sponsorships/notify-message
+// Called by the frontend after the user sends a chat message.
+// Sends an email to the partner only if:
+//   - they have not been active in the last 10 minutes, AND
+//   - no notification email has been sent for this sponsorship in the last hour.
+func (h *SponsorHandler) NotifyPartnerMessage(c *gin.Context) {
+	senderID := c.MustGet("user_id").(uuid.UUID)
+
+	// Resolve active sponsorship and partner details.
+	var sponsorID, sponseeID uuid.UUID
+	var channelID string
+	var lastNotified *time.Time
+
+	err := h.DB.QueryRow(c,
+		`SELECT sponsor_id, sponsee_id, stream_channel_id, last_message_notified_at
+		 FROM sponsorships
+		 WHERE (sponsor_id = $1 OR sponsee_id = $1) AND terminated_at IS NULL`,
+		senderID,
+	).Scan(&sponsorID, &sponseeID, &channelID, &lastNotified)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"sent": false, "reason": "no active sponsorship"})
+		return
+	}
+
+	// Throttle: skip if an email was sent in the last hour.
+	if lastNotified != nil && time.Since(*lastNotified) < time.Hour {
+		c.JSON(http.StatusOK, gin.H{"sent": false, "reason": "throttled"})
+		return
+	}
+
+	// Determine who is the partner.
+	partnerID := sponsorID
+	senderRole := "sponsor"
+	if senderID == sponsorID {
+		partnerID = sponseeID
+		senderRole = "sponsee"
+	}
+
+	// Check partner's last_active_at — skip email if active within last 10 minutes.
+	var partnerLastActive *time.Time
+	h.DB.QueryRow(c,
+		`SELECT last_active_at FROM users WHERE id = $1`, partnerID,
+	).Scan(&partnerLastActive)
+	if partnerLastActive != nil && time.Since(*partnerLastActive) < 10*time.Minute {
+		c.JSON(http.StatusOK, gin.H{"sent": false, "reason": "partner is online"})
+		return
+	}
+
+	// Fetch names and partner email.
+	var senderName, partnerName, partnerEmail string
+	h.DB.QueryRow(c,
+		`SELECT display_name FROM student_profiles WHERE user_id = $1`, senderID,
+	).Scan(&senderName)
+	if err := h.DB.QueryRow(c,
+		`SELECT u.email, sp.display_name FROM users u
+		 JOIN student_profiles sp ON sp.user_id = u.id WHERE u.id = $1`,
+		partnerID,
+	).Scan(&partnerEmail, &partnerName); err != nil {
+		c.JSON(http.StatusOK, gin.H{"sent": false, "reason": "partner not found"})
+		return
+	}
+
+	// Update throttle timestamp.
+	h.DB.Exec(c,
+		`UPDATE sponsorships SET last_message_notified_at = now()
+		 WHERE (sponsor_id = $1 OR sponsee_id = $1) AND terminated_at IS NULL`,
+		senderID,
+	)
+
+	go h.Mailer.SendAsync(
+		partnerEmail,
+		senderName+" sent you a message on CampusCare",
+		mail.SponsorChatNotificationTemplate(partnerName, senderName, senderRole),
+	)
+
+	c.JSON(http.StatusOK, gin.H{"sent": true})
+}
+
 func (h *SponsorHandler) notifySponseeTerminated(sponseeID, sponsorID uuid.UUID) {
 	var sponseeEmail, sponseeName, sponsorName string
 	if err := h.DB.QueryRow(context.Background(),

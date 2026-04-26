@@ -1,0 +1,2 @@
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ DEFAULT now();
+ALTER TABLE sponsorships ADD COLUMN IF NOT EXISTS last_message_notified_at TIMESTAMPTZ;

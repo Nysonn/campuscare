@@ -62,14 +62,26 @@ func (h *WalletHandler) DisburseToCampaign(c *gin.Context) {
 		return
 	}
 
-	// Check campaign exists and is approved.
+	// Check campaign exists, is approved, and has not yet hit its funding target.
 	var count int
 	h.DB.QueryRow(c,
-		`SELECT COUNT(*) FROM campaigns WHERE id = $1 AND status::text = 'approved' AND deleted_at IS NULL`,
+		`SELECT COUNT(*) FROM campaigns
+		 WHERE id = $1 AND status::text = 'approved' AND deleted_at IS NULL
+		   AND current_amount < target_amount`,
 		campaignID,
 	).Scan(&count)
 	if count == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Approved campaign not found"})
+		// Distinguish between "not found" and "already fully funded".
+		var exists int
+		h.DB.QueryRow(c,
+			`SELECT COUNT(*) FROM campaigns WHERE id = $1 AND status::text = 'approved' AND deleted_at IS NULL`,
+			campaignID,
+		).Scan(&exists)
+		if exists == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Approved campaign not found"})
+		} else {
+			c.JSON(http.StatusConflict, gin.H{"error": "This campaign has already reached its funding target and cannot receive further disbursements"})
+		}
 		return
 	}
 
@@ -249,7 +261,9 @@ func (h *WalletHandler) ListApprovedCampaigns(c *gin.Context) {
 	rows, err := h.DB.Query(c, `
 		SELECT id, title, current_amount, target_amount
 		FROM campaigns
-		WHERE status::text = 'approved' AND deleted_at IS NULL
+		WHERE status::text = 'approved'
+		  AND deleted_at IS NULL
+		  AND current_amount < target_amount
 		ORDER BY created_at DESC
 	`)
 	if err != nil {

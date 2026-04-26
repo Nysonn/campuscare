@@ -462,3 +462,20 @@ func HabitMissedTemplate(studentName, goalTitle string) string {
 		<p style="margin-top:24px; color:#b7791f;">Come back strong,<br/><strong>The CampusCare Team</strong></p>
 	</div>`
 }
+
+// SponsorChatNotificationTemplate notifies a user that their sponsor/sponsee
+// has sent them a message and they should log in to reply.
+func SponsorChatNotificationTemplate(recipientName, senderName, senderRole string) string {
+	return `
+	<div style="font-family: Arial, sans-serif; background:#f0fff4; padding:32px; max-width:560px; margin:auto;">
+		<h2 style="color:#2f855a; margin-bottom:4px;">CampusCare — New Message</h2>
+		<p style="color:#4a5568;">Hi ` + recipientName + `,</p>
+		<p style="color:#4a5568;">
+			Your ` + senderRole + ` <strong>` + senderName + `</strong> has sent you a message on CampusCare.
+		</p>
+		<p style="color:#4a5568;">
+			Log in to your dashboard to read and reply.
+		</p>
+		<p style="margin-top:24px; color:#2f855a;">With care,<br/><strong>The CampusCare Team</strong></p>
+	</div>`
+}
