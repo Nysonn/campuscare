@@ -289,8 +289,7 @@ func (h *CampaignHandler) PublicList(c *gin.Context) {
 		 JOIN student_profiles sp ON sp.user_id = c.student_id
 		 WHERE c.status::text IN ('approved', 'completed')
 		   AND c.deleted_at IS NULL
-		 ORDER BY c.created_at DESC
-		 LIMIT 6`,
+		 ORDER BY c.created_at DESC`,
 	)
 
 	if err != nil {
