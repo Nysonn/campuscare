@@ -46,7 +46,8 @@ func (h *AdminHandler) ListUsers(c *gin.Context) {
 
 	rows, err := h.DB.Query(c,
 		`SELECT u.id, u.email, u.role::text, u.status, u.created_at,
-		        COALESCE(cp.full_name, sp.display_name, '') AS full_name
+		        COALESCE(cp.full_name, sp.display_name, '') AS full_name,
+		        COALESCE(cp.phone, '') AS phone
 		 FROM users u
 		 LEFT JOIN student_profiles sp ON sp.user_id = u.id
 		 LEFT JOIN counselor_profiles cp ON cp.user_id = u.id
@@ -67,10 +68,10 @@ func (h *AdminHandler) ListUsers(c *gin.Context) {
 
 	for rows.Next() {
 		var id uuid.UUID
-		var email, role, status, fullName string
+		var email, role, status, fullName, phone string
 		var createdAt time.Time
 
-		rows.Scan(&id, &email, &role, &status, &createdAt, &fullName)
+		rows.Scan(&id, &email, &role, &status, &createdAt, &fullName, &phone)
 
 		result = append(result, gin.H{
 			"id":         id,
@@ -78,6 +79,7 @@ func (h *AdminHandler) ListUsers(c *gin.Context) {
 			"email":      email,
 			"role":       role,
 			"status":     status,
+			"phone":      phone,
 			"created_at": createdAt,
 		})
 	}
@@ -208,7 +210,7 @@ func (h *AdminHandler) ListBookings(c *gin.Context) {
 func (h *AdminHandler) ListContributions(c *gin.Context) {
 
 	rows, _ := h.DB.Query(c,
-		`SELECT id, campaign_id, donor_name, donor_email, amount, status, created_at
+		`SELECT id, campaign_id, donor_name, donor_email, COALESCE(donor_phone,''), amount, status, created_at
 		 FROM contributions
 		 ORDER BY created_at DESC`,
 	)
@@ -217,17 +219,18 @@ func (h *AdminHandler) ListContributions(c *gin.Context) {
 
 	for rows.Next() {
 		var id, campaignID uuid.UUID
-		var donorName, donorEmail, status string
+		var donorName, donorEmail, donorPhone, status string
 		var amount int64
 		var createdAt time.Time
 
-		rows.Scan(&id, &campaignID, &donorName, &donorEmail, &amount, &status, &createdAt)
+		rows.Scan(&id, &campaignID, &donorName, &donorEmail, &donorPhone, &amount, &status, &createdAt)
 
 		list = append(list, gin.H{
 			"id":          id,
 			"campaign_id": campaignID,
 			"donor_name":  donorName,
 			"donor_email": donorEmail,
+			"donor_phone": donorPhone,
 			"amount":      amount,
 			"status":      status,
 			"created_at":  createdAt,
