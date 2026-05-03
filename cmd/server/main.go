@@ -97,6 +97,9 @@ func main() {
 		Service: &chatbot.Service{DB: database},
 	}
 
+	// Public (unauthenticated) one-shot chatbot for landing page visitors.
+	r.POST("/chatbot/public", chatbotHandler.AskPublic)
+
 	auth.POST("/chatbot",
 		middleware.RequireRole(database, "student"),
 		chatbotHandler.Ask,
