@@ -212,5 +212,26 @@ func main() {
 	admin.GET("/wallet/disbursements", walletHandler.ListDisbursements)
 	admin.GET("/wallet/withdrawals", walletHandler.ListWithdrawals)
 
+	// ── Blog routes ───────────────────────────────────────────────────────────
+	blogHandler := &handlers.BlogHandler{DB: database}
+	// Public
+	r.GET("/blogs", blogHandler.ListBlogs)
+	r.GET("/blogs/:id", blogHandler.GetBlog)
+	// Admin-only
+	admin.POST("/blogs", blogHandler.CreateBlog)
+	admin.DELETE("/blogs/:id", blogHandler.DeleteBlog)
+
+	// ── Testimonial routes ────────────────────────────────────────────────────
+	testimonialHandler := &handlers.TestimonialHandler{DB: database}
+	// Public
+	r.GET("/testimonials", testimonialHandler.ListTestimonials)
+	// Student-only
+	auth.GET("/testimonials/mine", middleware.RequireRole(database, "student"), testimonialHandler.MyTestimonial)
+	auth.POST("/testimonials", middleware.RequireRole(database, "student"), testimonialHandler.SubmitTestimonial)
+	// Admin-only
+	admin.GET("/testimonials", testimonialHandler.AdminListTestimonials)
+	admin.PUT("/testimonials/:id/status", testimonialHandler.AdminUpdateTestimonialStatus)
+	admin.DELETE("/testimonials/:id", testimonialHandler.AdminDeleteTestimonial)
+
 	r.Run(":" + cfg.AppPort)
 }
