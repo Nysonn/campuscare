@@ -253,6 +253,17 @@ func (h *CampaignHandler) PublicGet(c *gin.Context) {
 		}
 	}
 
+	// Funding breakdown: direct donor contributions vs general pool disbursements.
+	var directAmount, poolAmount int64
+	h.DB.QueryRow(context.Background(),
+		`SELECT COALESCE(SUM(amount), 0) FROM contributions WHERE campaign_id = $1 AND status = 'success'`,
+		id,
+	).Scan(&directAmount)
+	h.DB.QueryRow(context.Background(),
+		`SELECT COALESCE(SUM(amount), 0) FROM pool_disbursements WHERE campaign_id = $1`,
+		id,
+	).Scan(&poolAmount)
+
 	c.JSON(http.StatusOK, gin.H{
 		"id":                   id,
 		"title":                title,
@@ -274,6 +285,8 @@ func (h *CampaignHandler) PublicGet(c *gin.Context) {
 		"author":               author,
 		"avatar_url":           avatarURL,
 		"attachments":          attachments,
+		"direct_amount":        directAmount,
+		"pool_amount":          poolAmount,
 	})
 }
 
