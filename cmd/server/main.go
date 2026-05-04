@@ -234,8 +234,16 @@ func main() {
 	reportHandler := &handlers.ReportHandler{DB: database}
 	// Public — anyone can submit a welfare concern report
 	r.POST("/reports", reportHandler.SubmitReport)
+	studentReports := auth.Group("/reports")
+	studentReports.Use(middleware.RequireRole(database, "student"))
+	studentReports.GET("/my-followups", reportHandler.MyFollowups)
+	studentReports.GET("/pool", reportHandler.ListPoolReports)
+	studentReports.POST("/:id/claim", reportHandler.ClaimPoolReport)
+	studentReports.GET("/:id/welfare-reports", reportHandler.ListWelfareReports)
+	studentReports.POST("/:id/welfare-reports", reportHandler.SubmitWelfareReport)
 	// Admin-only — view and manage reports
 	admin.GET("/reports", reportHandler.AdminListReports)
+	admin.GET("/reports/welfare", reportHandler.AdminListWelfareReports)
 	admin.PUT("/reports/:id", reportHandler.AdminUpdateReport)
 	admin.DELETE("/reports/:id", reportHandler.AdminDeleteReport)
 
