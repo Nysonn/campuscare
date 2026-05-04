@@ -22,7 +22,7 @@ func (h *BehaviourHandler) CreateGoal(c *gin.Context) {
 
 	var req struct {
 		Title     string `json:"title"`
-		Direction string `json:"direction"` // "build" | "quit"
+		Direction string `json:"direction"`  // "build" | "quit"
 		StartDate string `json:"start_date"` // YYYY-MM-DD
 		EndDate   string `json:"end_date"`   // YYYY-MM-DD
 	}
@@ -94,6 +94,11 @@ func (h *BehaviourHandler) CreateGoal(c *gin.Context) {
 				req.StartDate, req.EndDate,
 			)
 			h.Mailer.SendAsync(studentEmail, "Your new habit goal is set — let's go! 🎯", body)
+			CreateNotification(c, h.DB, userID,
+				"Habit Goal Created 🎯",
+				"Your habit goal \""+req.Title+"\" has been set! Log your daily progress from the Behaviour section.",
+				"general",
+			)
 		}
 	}
 

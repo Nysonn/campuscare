@@ -356,6 +356,11 @@ func (h *AdminHandler) notifyCounselorApproved(counselorID uuid.UUID) {
 		"Your CampusCare account has been approved!",
 		mail.CounselorApprovedTemplate(fullName),
 	)
+	CreateNotification(context.Background(), h.DB, counselorID,
+		"Account Approved",
+		"Congratulations "+fullName+"! Your CampusCare counsellor account has been approved. You can now start receiving session bookings.",
+		"general",
+	)
 }
 
 // ListGeneralPoolDonations — GET /admin/general-pool

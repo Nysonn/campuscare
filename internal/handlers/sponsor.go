@@ -74,6 +74,11 @@ func (h *SponsorHandler) BecomeSponsor(c *gin.Context) {
 			"You're now a sponsor on CampusCare!",
 			mail.NewSponsorTemplate(sponsorName),
 		)
+		CreateNotification(context.Background(), h.DB, userID,
+			"You're a Sponsor! 🤝",
+			"You are now listed as a sponsor on CampusCare. Students can now send you sponsorship requests.",
+			"sponsor",
+		)
 	}()
 
 	c.JSON(http.StatusOK, gin.H{"message": "You are now listed as a sponsor"})
@@ -904,6 +909,11 @@ func (h *SponsorHandler) NotifyPartnerMessage(c *gin.Context) {
 		partnerEmail,
 		senderName+" sent you a message on CampusCare",
 		mail.SponsorChatNotificationTemplate(partnerName, senderName, senderRole),
+	)
+	CreateNotification(c, h.DB, partnerID,
+		"New Message from "+senderName,
+		senderName+" has sent you a message. Open CampusCare to read and reply.",
+		"general",
 	)
 
 	c.JSON(http.StatusOK, gin.H{"sent": true})

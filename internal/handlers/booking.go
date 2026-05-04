@@ -148,18 +148,19 @@ func (h *BookingHandler) handleAcceptedBooking(bookingID uuid.UUID) {
 }
 
 func (h *BookingHandler) notifyCounselorBookingAccepted(bookingID uuid.UUID, meetLink string) {
+	var counselorID uuid.UUID
 	var counselorEmail, counselorName, studentName, sessionType, location string
 	var startTime, endTime time.Time
 
 	err := h.DB.QueryRow(context.Background(),
-		`SELECT cu.email, cp.full_name, sp.display_name, b.type::text, COALESCE(b.location,''), b.start_time, b.end_time
+		`SELECT b.counselor_id, cu.email, cp.full_name, sp.display_name, b.type::text, COALESCE(b.location,''), b.start_time, b.end_time
 		 FROM bookings b
 		 JOIN users cu ON cu.id = b.counselor_id
 		 JOIN counselor_profiles cp ON cp.user_id = b.counselor_id
 		 JOIN student_profiles sp ON sp.user_id = b.student_id
 		 WHERE b.id = $1`,
 		bookingID,
-	).Scan(&counselorEmail, &counselorName, &studentName, &sessionType, &location, &startTime, &endTime)
+	).Scan(&counselorID, &counselorEmail, &counselorName, &studentName, &sessionType, &location, &startTime, &endTime)
 	if err != nil {
 		return
 	}
@@ -171,6 +172,11 @@ func (h *BookingHandler) notifyCounselorBookingAccepted(bookingID uuid.UUID, mee
 		counselorEmail,
 		"You Have Confirmed a Counselling Session",
 		mail.BookingAcceptedCounselorTemplate(counselorName, studentName, sessionType, start, end, location, meetLink),
+	)
+	CreateNotification(context.Background(), h.DB, counselorID,
+		"Session Confirmed",
+		"You have confirmed a "+sessionType+" session with "+studentName+" on "+start+" – "+end+".",
+		"booking",
 	)
 }
 

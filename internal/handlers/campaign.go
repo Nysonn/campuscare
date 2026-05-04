@@ -689,15 +689,16 @@ func (h *CampaignHandler) MyCampaigns(c *gin.Context) {
 }
 
 func (h *CampaignHandler) notifyStudentCampaignApproved(campaignID uuid.UUID) {
+	var studentID uuid.UUID
 	var studentEmail, studentName, campaignTitle string
 	if err := h.DB.QueryRow(context.Background(),
-		`SELECT u.email, sp.display_name, c.title
-		 FROM campaigns c
-		 JOIN users u ON u.id = c.student_id
-		 JOIN student_profiles sp ON sp.user_id = c.student_id
-		 WHERE c.id = $1`,
+		`SELECT u.id, u.email, sp.display_name, c.title
+                 FROM campaigns c
+                 JOIN users u ON u.id = c.student_id
+                 JOIN student_profiles sp ON sp.user_id = c.student_id
+                 WHERE c.id = $1`,
 		campaignID,
-	).Scan(&studentEmail, &studentName, &campaignTitle); err != nil {
+	).Scan(&studentID, &studentEmail, &studentName, &campaignTitle); err != nil {
 		return
 	}
 
@@ -705,5 +706,10 @@ func (h *CampaignHandler) notifyStudentCampaignApproved(campaignID uuid.UUID) {
 		studentEmail,
 		"Your CampusCare campaign has been approved!",
 		mail.CampaignApprovedTemplate(studentName, campaignTitle),
+	)
+	CreateNotification(context.Background(), h.DB, studentID,
+		"Campaign Approved 🎉",
+		"Your campaign \""+campaignTitle+"\" has been approved and is now live. Share it to start receiving donations!",
+		"campaign",
 	)
 }
