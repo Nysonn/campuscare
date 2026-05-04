@@ -221,6 +221,15 @@ func main() {
 	admin.POST("/blogs", blogHandler.CreateBlog)
 	admin.DELETE("/blogs/:id", blogHandler.DeleteBlog)
 
+	// ── Report routes ─────────────────────────────────────────────────────────
+	reportHandler := &handlers.ReportHandler{DB: database}
+	// Public — anyone can submit a welfare concern report
+	r.POST("/reports", reportHandler.SubmitReport)
+	// Admin-only — view and manage reports
+	admin.GET("/reports", reportHandler.AdminListReports)
+	admin.PUT("/reports/:id", reportHandler.AdminUpdateReport)
+	admin.DELETE("/reports/:id", reportHandler.AdminDeleteReport)
+
 	// ── Testimonial routes ────────────────────────────────────────────────────
 	testimonialHandler := &handlers.TestimonialHandler{DB: database}
 	// Public

@@ -30,6 +30,9 @@ type SubmitTestimonialRequest struct {
 	Content string `json:"content"`
 }
 
+// cooldownDays is the minimum gap between testimonial submissions.
+const cooldownDays = 90
+
 // ListTestimonials — public, returns approved testimonials.
 func (h *TestimonialHandler) ListTestimonials(c *gin.Context) {
 	rows, err := h.DB.Query(context.Background(),
@@ -59,26 +62,53 @@ func (h *TestimonialHandler) ListTestimonials(c *gin.Context) {
 	c.JSON(http.StatusOK, testimonials)
 }
 
-// MyTestimonial — student, returns their own testimonial (any status).
+// MyTestimonials — student, returns all their testimonials plus cooldown info.
 func (h *TestimonialHandler) MyTestimonial(c *gin.Context) {
 	studentID := c.MustGet("user_id").(uuid.UUID)
 
-	var t Testimonial
-	err := h.DB.QueryRow(context.Background(),
+	rows, err := h.DB.Query(context.Background(),
 		`SELECT id, student_id, display_name, avatar_url, university, content, status, created_at, updated_at
-		 FROM testimonials WHERE student_id = $1`, studentID,
-	).Scan(&t.ID, &t.StudentID, &t.DisplayName, &t.AvatarURL,
-		&t.University, &t.Content, &t.Status, &t.CreatedAt, &t.UpdatedAt)
-
+		 FROM testimonials
+		 WHERE student_id = $1
+		 ORDER BY created_at DESC`, studentID,
+	)
 	if err != nil {
-		// No testimonial yet — return 204
-		c.Status(http.StatusNoContent)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch testimonials"})
 		return
 	}
-	c.JSON(http.StatusOK, t)
+	defer rows.Close()
+
+	var testimonials []Testimonial
+	for rows.Next() {
+		var t Testimonial
+		if err := rows.Scan(&t.ID, &t.StudentID, &t.DisplayName, &t.AvatarURL,
+			&t.University, &t.Content, &t.Status, &t.CreatedAt, &t.UpdatedAt); err != nil {
+			continue
+		}
+		testimonials = append(testimonials, t)
+	}
+	if testimonials == nil {
+		testimonials = []Testimonial{}
+	}
+
+	canSubmit := true
+	var nextAllowedAt *time.Time
+	if len(testimonials) > 0 {
+		next := testimonials[0].CreatedAt.Add(cooldownDays * 24 * time.Hour)
+		if time.Now().Before(next) {
+			canSubmit = false
+			nextAllowedAt = &next
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"testimonials":    testimonials,
+		"can_submit":      canSubmit,
+		"next_allowed_at": nextAllowedAt,
+	})
 }
 
-// SubmitTestimonial — student, upsert (one testimonial per student).
+// SubmitTestimonial — student, inserts a new testimonial (max one per 90 days).
 func (h *TestimonialHandler) SubmitTestimonial(c *gin.Context) {
 	studentID := c.MustGet("user_id").(uuid.UUID)
 
@@ -86,6 +116,23 @@ func (h *TestimonialHandler) SubmitTestimonial(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil || len([]rune(req.Content)) < 10 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Content must be at least 10 characters"})
 		return
+	}
+
+	// Enforce 90-day cooldown.
+	var lastCreatedAt time.Time
+	err := h.DB.QueryRow(context.Background(),
+		`SELECT created_at FROM testimonials WHERE student_id = $1 ORDER BY created_at DESC LIMIT 1`,
+		studentID,
+	).Scan(&lastCreatedAt)
+	if err == nil {
+		nextAllowed := lastCreatedAt.Add(cooldownDays * 24 * time.Hour)
+		if time.Now().Before(nextAllowed) {
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"error":           "You can submit a new testimonial on " + nextAllowed.Format("January 2, 2006"),
+				"next_allowed_at": nextAllowed.Format(time.RFC3339),
+			})
+			return
+		}
 	}
 
 	// Look up student profile for display_name, avatar_url, university.
@@ -100,16 +147,9 @@ func (h *TestimonialHandler) SubmitTestimonial(c *gin.Context) {
 	}
 
 	var t Testimonial
-	err := h.DB.QueryRow(context.Background(),
-		`INSERT INTO testimonials (student_id, display_name, avatar_url, university, content, status, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, 'pending', NOW())
-		 ON CONFLICT (student_id) DO UPDATE
-		   SET content      = EXCLUDED.content,
-		       display_name = EXCLUDED.display_name,
-		       avatar_url   = EXCLUDED.avatar_url,
-		       university   = EXCLUDED.university,
-		       status       = 'pending',
-		       updated_at   = NOW()
+	err = h.DB.QueryRow(context.Background(),
+		`INSERT INTO testimonials (student_id, display_name, avatar_url, university, content, status)
+		 VALUES ($1, $2, $3, $4, $5, 'pending')
 		 RETURNING id, student_id, display_name, avatar_url, university, content, status, created_at, updated_at`,
 		studentID, displayName, avatarURL, university, req.Content,
 	).Scan(&t.ID, &t.StudentID, &t.DisplayName, &t.AvatarURL,
