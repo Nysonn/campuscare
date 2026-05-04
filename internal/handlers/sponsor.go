@@ -749,6 +749,11 @@ func (h *SponsorHandler) notifySponsorOfRequest(sponsorID, requesterID uuid.UUID
 		"Someone wants you as their sponsor on CampusCare",
 		mail.SponsorRequestReceivedTemplate(sponsorName, requesterName),
 	)
+	CreateNotification(context.Background(), h.DB, sponsorID,
+		"New Sponsor Request",
+		requesterName+" has requested you as their sponsor on CampusCare.",
+		"sponsor",
+	)
 }
 
 func (h *SponsorHandler) notifySponseeAccepted(sponseeID, sponsorID uuid.UUID) {
@@ -768,6 +773,11 @@ func (h *SponsorHandler) notifySponseeAccepted(sponseeID, sponsorID uuid.UUID) {
 		sponseeEmail,
 		"Your sponsor request has been accepted!",
 		mail.SponsorRequestAcceptedTemplate(sponseeName, sponsorName),
+	)
+	CreateNotification(context.Background(), h.DB, sponseeID,
+		"Sponsor Request Accepted",
+		"Great news! "+sponsorName+" has accepted your sponsor request.",
+		"sponsor",
 	)
 }
 
@@ -789,6 +799,11 @@ func (h *SponsorHandler) notifySponseeDeclined(sponseeID, sponsorID uuid.UUID) {
 		"Update on your sponsor request",
 		mail.SponsorRequestDeclinedTemplate(sponseeName, sponsorName),
 	)
+	CreateNotification(context.Background(), h.DB, sponseeID,
+		"Sponsor Request Declined",
+		"Your sponsor request to "+sponsorName+" was not accepted at this time.",
+		"sponsor",
+	)
 }
 
 func (h *SponsorHandler) notifySponsorTerminated(sponsorID, sponseeID uuid.UUID) {
@@ -808,6 +823,11 @@ func (h *SponsorHandler) notifySponsorTerminated(sponsorID, sponseeID uuid.UUID)
 		sponsorEmail,
 		"A sponsorship has ended on CampusCare",
 		mail.SponsorTerminatedBySponsoreeTemplate(sponsorName, sponseeName),
+	)
+	CreateNotification(context.Background(), h.DB, sponsorID,
+		"Sponsorship Ended",
+		"Your sponsorship with "+sponseeName+" has been terminated.",
+		"sponsor",
 	)
 }
 
@@ -906,5 +926,10 @@ func (h *SponsorHandler) notifySponseeTerminated(sponseeID, sponsorID uuid.UUID)
 		sponseeEmail,
 		"Your sponsorship has ended",
 		mail.SponsorshipTerminatedTemplate(sponseeName, sponsorName),
+	)
+	CreateNotification(context.Background(), h.DB, sponseeID,
+		"Sponsorship Ended",
+		"Your sponsorship with "+sponsorName+" has ended.",
+		"sponsor",
 	)
 }

@@ -131,3 +131,40 @@ func (h *BlogHandler) DeleteBlog(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Blog deleted"})
 }
+
+// UpdateBlog — admin only.
+func (h *BlogHandler) UpdateBlog(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid blog ID"})
+		return
+	}
+
+	var req CreateBlogRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	if req.Title == "" || req.Description == "" || req.Content == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "title, description and content are required"})
+		return
+	}
+
+	var b Blog
+	err = h.DB.QueryRow(context.Background(),
+		`UPDATE blogs
+		 SET title=$1, description=$2, content=$3, image_url=$4, updated_at=now()
+		 WHERE id=$5
+		 RETURNING id, title, description, content, image_url, author, created_at, updated_at`,
+		req.Title, req.Description, req.Content, req.ImageURL, id,
+	).Scan(&b.ID, &b.Title, &b.Description, &b.Content,
+		&b.ImageURL, &b.Author, &b.CreatedAt, &b.UpdatedAt)
+
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Blog not found or update failed"})
+		return
+	}
+
+	c.JSON(http.StatusOK, b)
+}

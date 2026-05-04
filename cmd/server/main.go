@@ -218,8 +218,17 @@ func main() {
 	r.GET("/blogs", blogHandler.ListBlogs)
 	r.GET("/blogs/:id", blogHandler.GetBlog)
 	// Admin-only
+	admin.GET("/blogs", blogHandler.ListBlogs)
 	admin.POST("/blogs", blogHandler.CreateBlog)
+	admin.PUT("/blogs/:id", blogHandler.UpdateBlog)
 	admin.DELETE("/blogs/:id", blogHandler.DeleteBlog)
+
+	// ── Notification routes ───────────────────────────────────────────────────
+	notifHandler := &handlers.NotificationHandler{DB: database}
+	auth.GET("/notifications", notifHandler.ListNotifications)
+	auth.GET("/notifications/unread-count", notifHandler.UnreadCount)
+	auth.PATCH("/notifications/read-all", notifHandler.MarkAllRead)
+	auth.PATCH("/notifications/:id/read", notifHandler.MarkRead)
 
 	// ── Report routes ─────────────────────────────────────────────────────────
 	reportHandler := &handlers.ReportHandler{DB: database}

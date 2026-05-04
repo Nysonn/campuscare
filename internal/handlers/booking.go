@@ -175,18 +175,19 @@ func (h *BookingHandler) notifyCounselorBookingAccepted(bookingID uuid.UUID, mee
 }
 
 func (h *BookingHandler) notifyStudentBookingAccepted(bookingID uuid.UUID, meetLink string) {
+	var studentID uuid.UUID
 	var studentEmail, studentName, counselorName, sessionType, location string
 	var startTime, endTime time.Time
 
 	err := h.DB.QueryRow(context.Background(),
-		`SELECT u.email, sp.display_name, cp.full_name, b.type::text, COALESCE(b.location, ''), b.start_time, b.end_time
+		`SELECT b.student_id, u.email, sp.display_name, cp.full_name, b.type::text, COALESCE(b.location, ''), b.start_time, b.end_time
 		 FROM bookings b
 		 JOIN users u ON u.id = b.student_id
 		 JOIN student_profiles sp ON sp.user_id = b.student_id
 		 JOIN counselor_profiles cp ON cp.user_id = b.counselor_id
 		 WHERE b.id = $1`,
 		bookingID,
-	).Scan(&studentEmail, &studentName, &counselorName, &sessionType, &location, &startTime, &endTime)
+	).Scan(&studentID, &studentEmail, &studentName, &counselorName, &sessionType, &location, &startTime, &endTime)
 	if err != nil {
 		return
 	}
@@ -199,21 +200,28 @@ func (h *BookingHandler) notifyStudentBookingAccepted(bookingID uuid.UUID, meetL
 		"Your Counselling Session Has Been Confirmed",
 		mail.BookingAcceptedTemplate(studentName, counselorName, sessionType, start, end, location, meetLink),
 	)
+
+	CreateNotification(context.Background(), h.DB, studentID,
+		"Counselling Session Confirmed",
+		"Your session with "+counselorName+" on "+start+" – "+end+" has been confirmed.",
+		"booking",
+	)
 }
 
 func (h *BookingHandler) notifyStudentBookingStatus(bookingID uuid.UUID, status string) {
+	var studentID uuid.UUID
 	var studentEmail, studentName, counselorName string
 	var startTime, endTime time.Time
 
 	err := h.DB.QueryRow(context.Background(),
-		`SELECT u.email, sp.display_name, cp.full_name, b.start_time, b.end_time
+		`SELECT b.student_id, u.email, sp.display_name, cp.full_name, b.start_time, b.end_time
 		 FROM bookings b
 		 JOIN users u ON u.id = b.student_id
 		 JOIN student_profiles sp ON sp.user_id = b.student_id
 		 JOIN counselor_profiles cp ON cp.user_id = b.counselor_id
 		 WHERE b.id = $1`,
 		bookingID,
-	).Scan(&studentEmail, &studentName, &counselorName, &startTime, &endTime)
+	).Scan(&studentID, &studentEmail, &studentName, &counselorName, &startTime, &endTime)
 	if err != nil {
 		return
 	}
@@ -224,6 +232,11 @@ func (h *BookingHandler) notifyStudentBookingStatus(bookingID uuid.UUID, status 
 	if status == "declined" {
 		subject = "Your Counselling Session Request Was Declined"
 		body = mail.BookingDeclinedTemplate(studentName, counselorName, start)
+		CreateNotification(context.Background(), h.DB, studentID,
+			"Session Request Declined",
+			"Your counselling session request with "+counselorName+" on "+start+" was declined. Please book a new time.",
+			"booking",
+		)
 	} else {
 		return
 	}

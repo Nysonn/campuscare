@@ -403,6 +403,9 @@ func HabitGoalCreatedTemplate(studentName, goalTitle, direction, startDate, endD
 			Log your progress each day from your <strong>Behaviour</strong> section on the CampusCare dashboard.
 			We'll be cheering you on every step of the way.
 		</p>
+		<div style="text-align:center; margin:28px 0;">
+			<a href="http://campuscare.me/" style="background:#2f855a; color:#fff; text-decoration:none; padding:12px 28px; border-radius:8px; font-weight:bold; font-size:15px; display:inline-block;">Open CampusCare</a>
+		</div>
 		<p style="margin-top:24px; color:#2f855a;">You've got this,<br/><strong>The CampusCare Team</strong></p>
 	</div>`
 }
@@ -434,6 +437,9 @@ func DailyMotivationTemplate(studentName, goalTitle, direction string, successDa
 		<p style="color:#4a5568; font-style:italic;">
 			"It does not matter how slowly you go as long as you do not stop." — Confucius
 		</p>
+		<div style="text-align:center; margin:28px 0;">
+			<a href="http://campuscare.me/" style="background:#2f855a; color:#fff; text-decoration:none; padding:12px 28px; border-radius:8px; font-weight:bold; font-size:15px; display:inline-block;">Log Today's Progress</a>
+		</div>
 		<p style="margin-top:24px; color:#2f855a;">Believing in you,<br/><strong>The CampusCare Team</strong></p>
 	</div>`
 }
@@ -459,6 +465,9 @@ func HabitMissedTemplate(studentName, goalTitle string) string {
 		<p style="color:#4a5568; font-style:italic;">
 			"Fall seven times, stand up eight." — Japanese Proverb
 		</p>
+		<div style="text-align:center; margin:28px 0;">
+			<a href="http://campuscare.me/" style="background:#b7791f; color:#fff; text-decoration:none; padding:12px 28px; border-radius:8px; font-weight:bold; font-size:15px; display:inline-block;">Return to CampusCare</a>
+		</div>
 		<p style="margin-top:24px; color:#b7791f;">Come back strong,<br/><strong>The CampusCare Team</strong></p>
 	</div>`
 }
