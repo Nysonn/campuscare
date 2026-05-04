@@ -107,7 +107,7 @@ func (h *NotificationHandler) MarkAllRead(c *gin.Context) {
 		return
 	}
 
-	_, err = h.DB.Exec(c,
+	_, err := h.DB.Exec(c,
 		`UPDATE notifications SET is_read = true WHERE user_id = $1`,
 		userID,
 	)
@@ -129,7 +129,7 @@ func (h *NotificationHandler) UnreadCount(c *gin.Context) {
 	}
 
 	var count int
-	err = h.DB.QueryRow(c,
+	err := h.DB.QueryRow(c,
 		`SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND is_read = false`,
 		userID,
 	).Scan(&count)
