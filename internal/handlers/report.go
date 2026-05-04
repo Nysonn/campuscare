@@ -17,35 +17,35 @@ type ReportHandler struct {
 }
 
 type Report struct {
-	ID                 uuid.UUID  `json:"id"`
-	ReporterName       *string    `json:"reporter_name"`
-	SubjectName        string     `json:"subject_name"`
-	SubjectContact     *string    `json:"subject_contact"`
-	University         *string    `json:"university"`
-	Description        string     `json:"description"`
-	Urgency            string     `json:"urgency"`
-	Status             string     `json:"status"`
-	AdminNotes         *string    `json:"admin_notes"`
-	CreatedAt          time.Time  `json:"created_at"`
-	UpdatedAt          time.Time  `json:"updated_at"`
-	WantsFollowup      bool       `json:"wants_followup"`
-	FollowupEmail      *string    `json:"followup_email"`
-	PoolHelperName     *string    `json:"pool_helper_name"`
-	WeeklyReportsCount int        `json:"weekly_reports_count"`
+	ID                 uuid.UUID `json:"id"`
+	ReporterName       *string   `json:"reporter_name"`
+	SubjectName        string    `json:"subject_name"`
+	SubjectContact     *string   `json:"subject_contact"`
+	University         *string   `json:"university"`
+	Description        string    `json:"description"`
+	Urgency            string    `json:"urgency"`
+	Status             string    `json:"status"`
+	AdminNotes         *string   `json:"admin_notes"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
+	WantsFollowup      bool      `json:"wants_followup"`
+	FollowupEmail      *string   `json:"followup_email"`
+	PoolHelperName     *string   `json:"pool_helper_name"`
+	WeeklyReportsCount int       `json:"weekly_reports_count"`
 }
 
 type FollowupCase struct {
-	ID             uuid.UUID  `json:"id"`
-	SubjectName    string     `json:"subject_name"`
-	SubjectContact *string    `json:"subject_contact"`
-	University     *string    `json:"university"`
-	Description    string     `json:"description"`
-	Urgency        string     `json:"urgency"`
-	Status         string     `json:"status"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
-	HelperType     string     `json:"helper_type"`
-	WantsFollowup  bool       `json:"wants_followup"`
+	ID             uuid.UUID `json:"id"`
+	SubjectName    string    `json:"subject_name"`
+	SubjectContact *string   `json:"subject_contact"`
+	University     *string   `json:"university"`
+	Description    string    `json:"description"`
+	Urgency        string    `json:"urgency"`
+	Status         string    `json:"status"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	HelperType     string    `json:"helper_type"`
+	WantsFollowup  bool      `json:"wants_followup"`
 }
 
 type WelfareReport struct {
@@ -419,8 +419,8 @@ func (h *ReportHandler) AdminListReports(c *gin.Context) {
 		if err := rows.Scan(
 			&r.ID, &r.ReporterName, &r.SubjectName, &r.SubjectContact,
 			&r.University, &r.Description, &r.Urgency, &r.Status,
-				&r.AdminNotes, &r.CreatedAt, &r.UpdatedAt,
-				&r.WantsFollowup, &r.FollowupEmail, &r.PoolHelperName, &r.WeeklyReportsCount,
+			&r.AdminNotes, &r.CreatedAt, &r.UpdatedAt,
+			&r.WantsFollowup, &r.FollowupEmail, &r.PoolHelperName, &r.WeeklyReportsCount,
 		); err != nil {
 			continue
 		}
