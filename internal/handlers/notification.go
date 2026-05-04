@@ -35,9 +35,9 @@ func CreateNotification(ctx context.Context, db *pgxpool.Pool, userID uuid.UUID,
 
 // ListNotifications handles GET /notifications — returns all notifications for the authenticated user.
 func (h *NotificationHandler) ListNotifications(c *gin.Context) {
-	userIDStr, _ := c.Get("user_id")
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	raw, _ := c.Get("user_id")
+	userID, ok := raw.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
@@ -73,9 +73,9 @@ func (h *NotificationHandler) ListNotifications(c *gin.Context) {
 
 // MarkRead handles PATCH /notifications/:id/read — marks one notification as read.
 func (h *NotificationHandler) MarkRead(c *gin.Context) {
-	userIDStr, _ := c.Get("user_id")
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	raw, _ := c.Get("user_id")
+	userID, ok := raw.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
@@ -100,9 +100,9 @@ func (h *NotificationHandler) MarkRead(c *gin.Context) {
 
 // MarkAllRead handles PATCH /notifications/read-all — marks all notifications for the user as read.
 func (h *NotificationHandler) MarkAllRead(c *gin.Context) {
-	userIDStr, _ := c.Get("user_id")
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	raw, _ := c.Get("user_id")
+	userID, ok := raw.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
@@ -121,9 +121,9 @@ func (h *NotificationHandler) MarkAllRead(c *gin.Context) {
 
 // UnreadCount handles GET /notifications/unread-count — returns count of unread notifications.
 func (h *NotificationHandler) UnreadCount(c *gin.Context) {
-	userIDStr, _ := c.Get("user_id")
-	userID, err := uuid.Parse(userIDStr.(string))
-	if err != nil {
+	raw, _ := c.Get("user_id")
+	userID, ok := raw.(uuid.UUID)
+	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}

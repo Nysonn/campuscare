@@ -81,7 +81,7 @@ func (s *Scheduler) sendDueReminders(ctx context.Context) {
 		SELECT
 			b.id,
 			su.email            AS student_email,
-			COALESCE(sp.full_name, su.email) AS student_name,
+			COALESCE(sp.display_name, su.email) AS student_name,
 			cu.email            AS counselor_email,
 			COALESCE(cp.full_name, cu.email) AS counselor_name,
 			b.type,
