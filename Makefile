@@ -8,10 +8,10 @@ run:
 	go run cmd/server/main.go
 
 migrate-up:
-	docker compose run --rm migrate migrate -path /app/migrations -database "$${DATABASE_URL}"
+	docker compose run --rm migrate
 
 migrate-down:
-	docker compose run --rm migrate migrate -path /app/migrations -database "$${DATABASE_URL}" down
+	docker compose run --rm migrate sh -c 'migrate -path /app/migrations -database "$$DATABASE_URL" down'
 
 sqlc:
 	sqlc generate
